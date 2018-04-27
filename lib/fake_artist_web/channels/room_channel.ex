@@ -2,23 +2,25 @@ defmodule FakeArtistWeb.RoomChannel do
   use Phoenix.Channel
   alias FakeArtistWeb.Presence
 
-  def join("room:lobby", %{"user_name" => user_name}, socket) do
-    IO.puts("hi")
+  def join("rooms:lobby", %{"user_id" => user_name}, socket) do
     send(self(), {:after_join, user_name})
     {:ok, socket}
   end
 
-  def handle_in("new_msgwhatisgoingonhere", %{"msg" => msg}, socket) do
+  def handle_in("new:msg", %{"body" => msg}, socket) do
     user_name = socket.assigns[:user_name]
 
-    broadcast(socket, "new_msg", %{msg: msg, user_name: user_name})
+    broadcast(socket, "new:msg", %{body: msg, user: user_name})
     {:reply, :ok, socket}
   end
 
-  def handle_in("new:player", %{"msg" => msg}, socket) do
+  def handle_in("new:player", %{}, socket) do
     user_name = socket.assigns[:user_name]
-
-    broadcast(socket, "new:player", %{msg: msg, user_name: user_name})
+    users = Presence.list(socket)
+    keys = users |> Map.keys()
+    random_keys_index = :rand.uniform(length(keys)) - 1
+    random_key = Enum.at(keys, random_keys_index)
+    broadcast(socket, "new:player", %{body: random_key, user: user_name})
     {:reply, :ok, socket}
   end
 

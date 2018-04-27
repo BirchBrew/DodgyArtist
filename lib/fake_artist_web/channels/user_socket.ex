@@ -2,7 +2,7 @@ defmodule FakeArtistWeb.UserSocket do
   use Phoenix.Socket
 
   ## Channels
-  channel("room:*", FakeArtistWeb.RoomChannel)
+  channel("rooms:*", FakeArtistWeb.RoomChannel)
 
   ## Transports
   transport(:websocket, Phoenix.Transports.WebSocket)

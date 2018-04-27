@@ -33,7 +33,7 @@ main =
 
 socketServer : String
 socketServer =
-    "ws://phoenixchat.herokuapp.com/ws"
+    "ws://localhost:4000/socket/websocket"
 
 
 
@@ -41,14 +41,9 @@ socketServer =
 
 
 type Msg
-    = SendMessage
-    | SetNewMessage String
-    | PhoenixMsg (Phoenix.Socket.Msg Msg)
-    | ReceiveChatMessage JE.Value
+    = PhoenixMsg (Phoenix.Socket.Msg Msg)
     | JoinChannel
     | LeaveChannel
-    | ShowJoinedMessage String
-    | ShowLeftMessage String
     | NoOp
     | SwitchPlayer
     | ReceiveNewPlayer JE.Value
@@ -66,7 +61,6 @@ initPhxSocket : Phoenix.Socket.Socket Msg
 initPhxSocket =
     Phoenix.Socket.init socketServer
         |> Phoenix.Socket.withDebug
-        |> Phoenix.Socket.on "new:msg" "rooms:lobby" ReceiveChatMessage
         |> Phoenix.Socket.on "new:player" "rooms:lobby" ReceiveNewPlayer
 
 
@@ -147,44 +141,10 @@ update msg model =
             , Cmd.map PhoenixMsg phxCmd
             )
 
-        SendMessage ->
-            let
-                payload =
-                    JE.object [ ( "user", JE.string "user" ), ( "body", JE.string model.newMessage ) ]
-
-                push_ =
-                    Phoenix.Push.init "new:msg" "rooms:lobby"
-                        |> Phoenix.Push.withPayload payload
-
-                ( phxSocket, phxCmd ) =
-                    Phoenix.Socket.push push_ model.phxSocket
-            in
-            ( { model
-                | newMessage = ""
-                , phxSocket = phxSocket
-              }
-            , Cmd.map PhoenixMsg phxCmd
-            )
-
-        SetNewMessage str ->
-            ( { model | newMessage = str }
-            , Cmd.none
-            )
-
         ReceiveNewPlayer raw ->
             case JD.decodeValue chatMessageDecoder raw of
                 Ok chatMessage ->
-                    ( { model | messages = (chatMessage.user ++ ": " ++ chatMessage.body) :: model.messages }
-                    , Cmd.none
-                    )
-
-                Err error ->
-                    ( model, Cmd.none )
-
-        ReceiveChatMessage raw ->
-            case JD.decodeValue chatMessageDecoder raw of
-                Ok chatMessage ->
-                    ( { model | messages = (chatMessage.user ++ ": " ++ chatMessage.body) :: model.messages }
+                    ( { model | activePlayer = chatMessage.body }
                     , Cmd.none
                     )
 
@@ -196,8 +156,6 @@ update msg model =
                 channel =
                     Phoenix.Channel.init "rooms:lobby"
                         |> Phoenix.Channel.withPayload userParams
-                        |> Phoenix.Channel.onJoin (always (ShowJoinedMessage "rooms:lobby"))
-                        |> Phoenix.Channel.onClose (always (ShowLeftMessage "rooms:lobby"))
 
                 ( phxSocket, phxCmd ) =
                     Phoenix.Socket.join channel model.phxSocket
@@ -213,16 +171,6 @@ update msg model =
             in
             ( { model | phxSocket = phxSocket }
             , Cmd.map PhoenixMsg phxCmd
-            )
-
-        ShowJoinedMessage channelName ->
-            ( { model | messages = ("Joined channel " ++ channelName) :: model.messages }
-            , Cmd.none
-            )
-
-        ShowLeftMessage channelName ->
-            ( { model | messages = ("Left channel " ++ channelName) :: model.messages }
-            , Cmd.none
             )
 
         NoOp ->
@@ -244,37 +192,4 @@ view model =
             , button [ onClick LeaveChannel ] [ text "Leave channel" ]
             , button [ onClick SwitchPlayer ] [ text "Switch Player" ]
             ]
-        , channelsTable (Dict.values model.phxSocket.channels)
-        , br [] []
-        , h3 [] [ text "Messages:" ]
-        , newMessageForm model
-        , ul [] ((List.reverse << List.map renderMessage) model.messages)
         ]
-
-
-channelsTable : List (Phoenix.Channel.Channel Msg) -> Html Msg
-channelsTable channels =
-    table []
-        [ tbody [] (List.map channelRow channels)
-        ]
-
-
-channelRow : Phoenix.Channel.Channel Msg -> Html Msg
-channelRow channel =
-    tr []
-        [ td [] [ text channel.name ]
-        , td [] [ (text << toString) channel.payload ]
-        , td [] [ (text << toString) channel.state ]
-        ]
-
-
-newMessageForm : Model -> Html Msg
-newMessageForm model =
-    form [ onSubmit SendMessage ]
-        [ input [ type_ "text", value model.newMessage, onInput SetNewMessage ] []
-        ]
-
-
-renderMessage : String -> Html Msg
-renderMessage str =
-    li [] [ text str ]
