@@ -1,11 +1,9 @@
 module Main exposing (..)
 
---where
-
 import Html exposing (Html, br, button, div, form, h3, input, li, table, tbody, td, text, tr, ul)
 import Html.Events exposing (onClick, onInput, onSubmit)
-import Json.Decode as JD exposing (field)
-import Json.Encode as JE
+import Json.Decode
+import Json.Encode
 import Phoenix.Channel
 import Phoenix.Push
 import Phoenix.Socket
@@ -15,23 +13,19 @@ import Platform.Cmd
 -- MAIN
 
 
-main : Program Never Model Msg
+type alias Flags =
+    { socketServer : String
+    }
+
+
+main : Program Flags Model Msg
 main =
-    Html.program
+    Html.programWithFlags
         { init = init
         , update = update
         , view = view
         , subscriptions = subscriptions
         }
-
-
-
--- CONSTANTS
-
-
-socketServer : String
-socketServer =
-    "ws://localhost:4000/socket/websocket"
 
 
 
@@ -44,32 +38,32 @@ type Msg
     | LeaveChannel
     | NoOp
     | SwitchPlayer
-    | ReceiveNewPlayer JE.Value
+    | ReceiveNewPlayer Json.Encode.Value
 
 
 type alias Model =
-    { newMessage : String
-    , messages : List String
+    { messages : List String
     , phxSocket : Phoenix.Socket.Socket Msg
     , activePlayer : String
     }
 
 
-initPhxSocket : Phoenix.Socket.Socket Msg
-initPhxSocket =
+initModel : String -> Model
+initModel socketServer =
+    Model [] (initPhxSocket socketServer) "default"
+
+
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    ( initModel flags.socketServer, Cmd.none )
+
+
+initPhxSocket : String -> Phoenix.Socket.Socket Msg
+initPhxSocket socketServer =
     Phoenix.Socket.init socketServer
+        -- TODO remove this `withDebug` before going live
         |> Phoenix.Socket.withDebug
         |> Phoenix.Socket.on "next:player" "rooms:lobby" ReceiveNewPlayer
-
-
-initModel : Model
-initModel =
-    Model "" [] initPhxSocket "default"
-
-
-init : ( Model, Cmd Msg )
-init =
-    ( initModel, Cmd.none )
 
 
 
@@ -91,10 +85,10 @@ type alias ChatMessage =
     }
 
 
-chatMessageDecoder : JD.Decoder ChatMessage
+chatMessageDecoder : Json.Decode.Decoder ChatMessage
 chatMessageDecoder =
-    JD.map ChatMessage
-        (field "next_player" JD.string)
+    Json.Decode.map ChatMessage
+        (Json.Decode.field "next_player" Json.Decode.string)
 
 
 
@@ -122,14 +116,13 @@ update msg model =
                     Phoenix.Socket.push push_ model.phxSocket
             in
             ( { model
-                | newMessage = ""
-                , phxSocket = phxSocket
+                | phxSocket = phxSocket
               }
             , Cmd.map PhoenixMsg phxCmd
             )
 
         ReceiveNewPlayer raw ->
-            case JD.decodeValue chatMessageDecoder raw of
+            case Json.Decode.decodeValue chatMessageDecoder raw of
                 Ok chatMessage ->
                     ( { model | activePlayer = chatMessage.next_player }
                     , Cmd.none
