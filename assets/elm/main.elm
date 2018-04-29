@@ -2,9 +2,7 @@ module Main exposing (..)
 
 --where
 
-import Dict
 import Html exposing (Html, br, button, div, form, h3, input, li, table, tbody, td, text, tr, ul)
-import Html.Attributes exposing (type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Json.Decode as JD exposing (field)
 import Json.Encode as JE
@@ -61,7 +59,7 @@ initPhxSocket : Phoenix.Socket.Socket Msg
 initPhxSocket =
     Phoenix.Socket.init socketServer
         |> Phoenix.Socket.withDebug
-        |> Phoenix.Socket.on "new:player" "rooms:lobby" ReceiveNewPlayer
+        |> Phoenix.Socket.on "next:player" "rooms:lobby" ReceiveNewPlayer
 
 
 initModel : Model
@@ -89,25 +87,18 @@ subscriptions model =
 
 
 type alias ChatMessage =
-    { user : String
-    , body : String
+    { next_player : String
     }
 
 
 chatMessageDecoder : JD.Decoder ChatMessage
 chatMessageDecoder =
-    JD.map2 ChatMessage
-        (field "user" JD.string)
-        (field "body" JD.string)
+    JD.map ChatMessage
+        (field "next_player" JD.string)
 
 
 
 -- UPDATE
-
-
-userParams : JE.Value
-userParams =
-    JE.object [ ( "user_id", JE.string "123" ) ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -124,12 +115,8 @@ update msg model =
 
         SwitchPlayer ->
             let
-                payload =
-                    JE.object [ ( "user", JE.string "user" ), ( "body", JE.string "switch player message!" ) ]
-
                 push_ =
-                    Phoenix.Push.init "new:player" "rooms:lobby"
-                        |> Phoenix.Push.withPayload payload
+                    Phoenix.Push.init "next:player" "rooms:lobby"
 
                 ( phxSocket, phxCmd ) =
                     Phoenix.Socket.push push_ model.phxSocket
@@ -144,7 +131,7 @@ update msg model =
         ReceiveNewPlayer raw ->
             case JD.decodeValue chatMessageDecoder raw of
                 Ok chatMessage ->
-                    ( { model | activePlayer = chatMessage.body }
+                    ( { model | activePlayer = chatMessage.next_player }
                     , Cmd.none
                     )
 
@@ -155,7 +142,6 @@ update msg model =
             let
                 channel =
                     Phoenix.Channel.init "rooms:lobby"
-                        |> Phoenix.Channel.withPayload userParams
 
                 ( phxSocket, phxCmd ) =
                     Phoenix.Socket.join channel model.phxSocket

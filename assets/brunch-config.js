@@ -49,6 +49,7 @@ exports.config = {
       mainModules: ["main.elm"],
       outputFolder: "../js",
       outputFile: "elm.js",
+      // makeParameters: ["--warn --debug"] super cool debugging in browser!
       makeParameters: ["--warn"]
     },
     babel: {

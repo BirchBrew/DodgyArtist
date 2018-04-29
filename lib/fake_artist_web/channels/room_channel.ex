@@ -2,8 +2,8 @@ defmodule FakeArtistWeb.RoomChannel do
   use Phoenix.Channel
   alias FakeArtistWeb.Presence
 
-  def join("rooms:lobby", %{"user_id" => user_name}, socket) do
-    send(self(), {:after_join, user_name})
+  def join("rooms:lobby", %{}, socket) do
+    send(self(), {:after_join})
     {:ok, socket}
   end
 
@@ -14,20 +14,21 @@ defmodule FakeArtistWeb.RoomChannel do
     {:reply, :ok, socket}
   end
 
-  def handle_in("new:player", %{}, socket) do
-    user_name = socket.assigns[:user_name]
+  def handle_in("next:player", %{}, socket) do
     users = Presence.list(socket)
     keys = users |> Map.keys()
-    random_keys_index = :rand.uniform(length(keys)) - 1
-    random_key = Enum.at(keys, random_keys_index)
-    broadcast(socket, "new:player", %{body: random_key, user: user_name})
+
+    random_key = Enum.random(keys)
+
+    broadcast(socket, "next:player", %{next_player: random_key})
     {:reply, :ok, socket}
   end
 
-  def handle_info({:after_join, user_name}, socket) do
+  def handle_info({:after_join}, socket) do
+    new_player_id = Presence.list(socket) |> Map.keys() |> length()
     push(socket, "presence_state", Presence.list(socket))
-    {:ok, _ref} = Presence.track(socket, user_name, %{online_at: now()})
-    {:noreply, assign(socket, :user_name, user_name)}
+    {:ok, _ref} = Presence.track(socket, new_player_id, %{online_at: now()})
+    {:noreply, assign(socket, :user_name, new_player_id)}
   end
 
   def terminate(_reason, socket) do
