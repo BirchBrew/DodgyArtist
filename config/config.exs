@@ -10,8 +10,7 @@ config :fake_artist, FakeArtistWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "Uabas1V2jc8gtroohGEZwA79nSDN3GlSgtuhM357ZuJLxrTMfBZ2jHQn8i0K/3zU",
   render_errors: [view: FakeArtistWeb.ErrorView, accepts: ~w(html json)],
-  pubsub: [name: FakeArtist.PubSub,
-           adapter: Phoenix.PubSub.PG2]
+  pubsub: [name: FakeArtistWeb.PubSub, adapter: Phoenix.PubSub.PG2]
 
 # Configures Elixir's Logger
 config :logger, :console,
@@ -20,4 +19,4 @@ config :logger, :console,
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
-import_config "#{Mix.env}.exs"
+import_config "#{Mix.env()}.exs"
