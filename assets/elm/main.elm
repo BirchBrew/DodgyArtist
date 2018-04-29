@@ -109,11 +109,11 @@ update msg model =
 
         SwitchPlayer ->
             let
-                push_ =
+                push =
                     Phoenix.Push.init "next:player" "rooms:lobby"
 
                 ( phxSocket, phxCmd ) =
-                    Phoenix.Socket.push push_ model.phxSocket
+                    Phoenix.Socket.push push model.phxSocket
             in
             ( { model
                 | phxSocket = phxSocket

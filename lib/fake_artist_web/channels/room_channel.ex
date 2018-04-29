@@ -7,13 +7,6 @@ defmodule FakeArtistWeb.RoomChannel do
     {:ok, socket}
   end
 
-  def handle_in("new:msg", %{"body" => msg}, socket) do
-    user_name = socket.assigns[:user_name]
-
-    broadcast(socket, "new:msg", %{body: msg, user: user_name})
-    {:reply, :ok, socket}
-  end
-
   def handle_in("next:player", %{}, socket) do
     users = Presence.list(socket)
     keys = users |> Map.keys()
