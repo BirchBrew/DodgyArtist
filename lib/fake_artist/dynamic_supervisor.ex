@@ -9,7 +9,7 @@ defmodule FakeArtist.DynamicSupervisor do
     DynamicSupervisor.start_link(__MODULE__, arg, name: __MODULE__)
   end
 
-  def start_child() do
-    DynamicSupervisor.start_child(__MODULE__, FakeArtist.Table)
+  def start_child(name) do
+    DynamicSupervisor.start_child(__MODULE__, {FakeArtist.Table, [name]})
   end
 end

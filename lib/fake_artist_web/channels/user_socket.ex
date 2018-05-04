@@ -2,7 +2,8 @@ defmodule FakeArtistWeb.UserSocket do
   use Phoenix.Socket
 
   ## Channels
-  channel("rooms:*", FakeArtistWeb.RoomChannel)
+  channel("welcome", FakeArtistWeb.WelcomeChannel)
+  channel("table:*", FakeArtistWeb.TableChannel)
 
   ## Transports
   transport(:websocket, Phoenix.Transports.WebSocket)
@@ -20,6 +21,8 @@ defmodule FakeArtistWeb.UserSocket do
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
   def connect(_params, socket) do
+    FakeArtistWeb.Endpoint.subscribe("room:lobby")
+    socket = assign(socket, :id, System.unique_integer([:positive]))
     {:ok, socket}
   end
 
@@ -33,5 +36,5 @@ defmodule FakeArtistWeb.UserSocket do
   #     FakeArtistWeb.Endpoint.broadcast("user_socket:#{user.id}", "disconnect", %{})
   #
   # Returning `nil` makes this socket anonymous.
-  def id(_socket), do: nil
+  def id(socket), do: "user:#{socket.assigns.id}"
 end

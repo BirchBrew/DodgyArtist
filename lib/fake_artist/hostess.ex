@@ -1,10 +1,10 @@
 defmodule FakeArtist.Hostess do
   use GenServer
 
-  def init(args) do
-    {:ok, args}
-  end
+  @chars "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  @length_of_room_name 4
 
+  # Client API
   def start_link(default) do
     GenServer.start_link(__MODULE__, default, name: __MODULE__)
   end
@@ -15,6 +15,15 @@ defmodule FakeArtist.Hostess do
 
   def start_new_table() do
     GenServer.call(__MODULE__, :start_new_table)
+  end
+
+  def get_table_pid(name) do
+    GenServer.call(__MODULE__, {:get_table_pid, name})
+  end
+
+  # Server Callbacks
+  def init(_args) do
+    {:ok, %{}}
   end
 
   def handle_call({:join_existing_table, table_name}, _from, tables) do
@@ -30,14 +39,19 @@ defmodule FakeArtist.Hostess do
   def handle_call(:start_new_table, _from, tables) do
     case try_join_new(tables) do
       {:ok, updated_tables, %{name: name, pid: pid}} ->
-        {:reply, {:ok, updated_tables, %{name: name, pid: pid}}}
+        {:reply, {:ok, %{name: name, pid: pid}}, updated_tables}
 
       {:error, message} ->
         {:reply, {:error, message}, tables}
     end
   end
 
-  def try_join_existing(table_name, tables) do
+  def handle_call({:get_table_pid, name}, _from, tables) do
+    {:reply, Map.get(tables, name), tables}
+  end
+
+  # Helpers
+  defp try_join_existing(table_name, tables) do
     if Map.has_key?(tables, table_name) do
       {:ok, %{pid: Map.get(tables, table_name)}}
     else
@@ -45,9 +59,9 @@ defmodule FakeArtist.Hostess do
     end
   end
 
-  def try_join_new(tables) do
+  defp try_join_new(tables) do
     with {:ok, name} <- get_unique_name(tables),
-         {:ok, pid} <- create_process(),
+         {:ok, pid} <- create_process(name),
          tables = Map.put(tables, name, pid) do
       {:ok, tables, %{name: name, pid: pid}}
     else
@@ -55,18 +69,16 @@ defmodule FakeArtist.Hostess do
     end
   end
 
-  def generate_new_name() do
-    length_of_room_name = 5
-    chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-    code_points = String.codepoints(chars)
+  defp generate_new_name() do
+    code_points = String.codepoints(@chars)
 
-    Enum.reduce(1..length_of_room_name, [], fn _i, acc ->
+    Enum.reduce(1..@length_of_room_name, [], fn _i, acc ->
       [Enum.random(code_points) | acc]
     end)
     |> Enum.join("")
   end
 
-  def get_unique_name_helper(tables, name \\ "michelangelo", tries \\ 0) do
+  defp get_unique_name_helper(tables, name \\ "michelangelo", tries \\ 0) do
     unless Map.has_key?(tables, name) do
       {:ok, name}
     else
@@ -78,12 +90,12 @@ defmodule FakeArtist.Hostess do
     end
   end
 
-  def get_unique_name(tables) do
+  defp get_unique_name(tables) do
     get_unique_name_helper(tables)
   end
 
-  def create_process() do
-    {:ok, pid} = FakeArtist.DynamicSupervisor.start_child()
+  defp create_process(name) do
+    {:ok, pid} = FakeArtist.DynamicSupervisor.start_child(name)
     {:ok, pid}
   end
 end
