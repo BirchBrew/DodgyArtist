@@ -54,18 +54,22 @@ type Msg
     | Table String
     | NameTagChange NameTag
     | UpdateState Json.Encode.Value
+    | StartGame
+    | UpdateGame Json.Encode.Value
+    | ProgressGame
+    | ChooseCategory
 
 
 type alias Model =
     { messages : List String
     , phxSocket : Phoenix.Socket.Socket Msg
-    , activePlayer : String
     , currentScreen : Screen
     , tableTopic : Maybe Topic
     , tableRequest : String
     , errorText : String
     , nameTag : NameTag
     , nameTags : List NameTag
+    , players : List Player
     }
 
 
@@ -89,13 +93,13 @@ initModelCmd socketServer =
         (JoinChannel welcomeTopic)
         { messages = []
         , phxSocket = initPhxSocket socketServer
-        , activePlayer = "default"
         , currentScreen = Welcome
         , tableTopic = Nothing
         , errorText = ""
         , tableRequest = ""
         , nameTag = ""
         , nameTags = []
+        , players = []
         }
 
 
@@ -138,6 +142,34 @@ errorDecoder =
 namesDecoder : Json.Decode.Decoder (List String)
 namesDecoder =
     Json.Decode.field "names" (Json.Decode.list Json.Decode.string)
+
+
+type alias Player =
+    { player_id : Int
+    , name : String
+    , isActive : Bool
+    , seat : Int
+    }
+
+
+playerDecoder : Json.Decode.Decoder Player
+playerDecoder =
+    Json.Decode.map4 Player
+        (Json.Decode.field "id" Json.Decode.int)
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "is_active" Json.Decode.bool)
+        (Json.Decode.field "seat" Json.Decode.int)
+
+
+type alias GameState =
+    { players : List Player
+    }
+
+
+gameDecoder : Json.Decode.Decoder GameState
+gameDecoder =
+    Json.Decode.map GameState
+        (Json.Decode.field "players" (Json.Decode.list playerDecoder))
 
 
 
@@ -269,6 +301,32 @@ update msg model =
             , Cmd.map PhoenixMsg phxCmd
             )
 
+        StartGame ->
+            let
+                push =
+                    Phoenix.Push.init "start_game" (Maybe.withDefault "" model.tableTopic)
+
+                ( phxSocket, phxCmd ) =
+                    Phoenix.Socket.push push model.phxSocket
+
+                phxSocket_ =
+                    Phoenix.Socket.on "update_game" (Maybe.withDefault "" model.tableTopic) UpdateGame phxSocket
+            in
+            ( { model
+                | phxSocket = phxSocket_
+                , currentScreen = Game
+              }
+            , Cmd.map PhoenixMsg phxCmd
+            )
+
+        UpdateGame raw ->
+            case Json.Decode.decodeValue gameDecoder raw of
+                Ok gameState ->
+                    ( { model | players = gameState.players }, Cmd.none )
+
+                Err error ->
+                    ( { model | errorText = "failed to update game" }, Cmd.none )
+
         ChangeScreen screen ->
             ( { model | currentScreen = screen }, Cmd.none )
 
@@ -278,7 +336,35 @@ update msg model =
                     ( { model | nameTags = nameTags }, Cmd.none )
 
                 Err error ->
-                    ( model, Cmd.none )
+                    ( { model | errorText = "couldn't update state" }, Cmd.none )
+
+        ProgressGame ->
+            let
+                push =
+                    Phoenix.Push.init "progress_game" (Maybe.withDefault "" model.tableTopic)
+
+                ( phxSocket, phxCmd ) =
+                    Phoenix.Socket.push push model.phxSocket
+            in
+            ( { model
+                | phxSocket = phxSocket
+              }
+            , Cmd.map PhoenixMsg phxCmd
+            )
+
+        ChooseCategory ->
+            let
+                push =
+                    Phoenix.Push.init "choose_category" (Maybe.withDefault "" model.tableTopic)
+
+                ( phxSocket, phxCmd ) =
+                    Phoenix.Socket.push push model.phxSocket
+            in
+            ( { model
+                | phxSocket = phxSocket
+              }
+            , Cmd.map PhoenixMsg phxCmd
+            )
 
 
 
@@ -306,14 +392,15 @@ view model =
                 -- TODO replace with drawn NameTag
                 , input [ type_ "text", placeholder "enter NameTag", onInput NameTagChange ] []
                 , nameTagView model
-                , button [ onClick (ChangeScreen Game) ] [ text "go to Game" ]
+                , button [ onClick StartGame ] [ text "go to Game" ]
                 ]
 
         Game ->
             div []
                 [ h2 [] [ text "Game:" ]
-                , nameTagView model
-                , div [] [ text model.activePlayer ]
+                , playersListView model
+                , button [ onClick ChooseCategory ] [ text "Choose Topic" ]
+                , button [ onClick ProgressGame ] [ text "Progress Game" ]
                 , div
                     []
                     [ text "That's all, folks!" ]
@@ -326,6 +413,31 @@ nameTagView model =
         [ h2 [] [ text "Painters" ]
         , ul [] <| displayNameTags model.nameTags
         ]
+
+
+playersListView : Model -> Html msg
+playersListView model =
+    div []
+        [ h2 [] [ text "Painters" ]
+        , ul [] <| displayPlayer model.players
+        ]
+
+
+displayPlayer : List Player -> List (Html.Html msg)
+displayPlayer players =
+    List.map
+        (\player ->
+            li []
+                [ text ("Name: " ++ player.name)
+                , ul
+                    []
+                    [ li [] [ text ("Player Id: " ++ toString player.player_id) ]
+                    , li [] [ text ("Seat: " ++ toString player.seat) ]
+                    , li [] [ text ("Active Player? " ++ toString player.isActive) ]
+                    ]
+                ]
+        )
+        players
 
 
 displayNameTags : List NameTag -> List (Html.Html msg)
