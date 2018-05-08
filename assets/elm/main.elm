@@ -88,6 +88,7 @@ type alias Model =
     , nameTag : NameTag
     , nameTags : List NameTag
     , players : List Player
+    , player_id : Int
     , mouseDown : Bool
     , lines : List Line
     , currentLine : Line
@@ -134,6 +135,7 @@ initModelCmd windowWidth windowHeight socketServer =
         , nameTag = ""
         , nameTags = []
         , players = []
+        , player_id = -1
         , mouseDown = False
         , currentLine = Line "black" []
         , lines = []
@@ -172,9 +174,17 @@ subscriptions model =
 -- PHOENIX STUFF
 
 
-tableDecoder : Json.Decode.Decoder Topic
-tableDecoder =
-    Json.Decode.field "table" Json.Decode.string
+type alias TableState =
+    { table : String
+    , player_id : Int
+    }
+
+
+tableStateDecoder : Json.Decode.Decoder TableState
+tableStateDecoder =
+    Json.Decode.map2 TableState
+        (Json.Decode.field "table" Json.Decode.string)
+        (Json.Decode.field "id" Json.Decode.int)
 
 
 errorDecoder : Json.Decode.Decoder String
@@ -295,14 +305,14 @@ update msg model =
             )
 
         JoinTable raw ->
-            case Json.Decode.decodeValue tableDecoder raw of
-                Ok table ->
+            case Json.Decode.decodeValue tableStateDecoder raw of
+                Ok tableState ->
                     let
                         tableTopic =
-                            "table:" ++ table
+                            "table:" ++ tableState.table
 
                         newModel =
-                            { model | tableTopic = Just tableTopic, currentScreen = Lobby }
+                            { model | tableTopic = Just tableTopic, currentScreen = Lobby, player_id = tableState.player_id }
 
                         ( newLeaveModel, leaveCmd ) =
                             update LeaveWelcomeChannel newModel
@@ -313,7 +323,7 @@ update msg model =
                     ( newJoinModel, Cmd.batch [ leaveCmd, joinCmd ] )
 
                 Err error ->
-                    ( model, Cmd.none )
+                    ( { model | errorText = "failed to join table" }, Cmd.none )
 
         JoinTableError raw ->
             case Json.Decode.decodeValue errorDecoder raw of
@@ -474,6 +484,30 @@ view model =
                     ]
                 , drawingSpace model
                 ]
+
+
+getActivePlayerHelper : Maybe Player -> Player
+getActivePlayerHelper player =
+    case player of
+        Just elem ->
+            elem
+
+        Nothing ->
+            Debug.crash "Player list didn't have you in it!"
+
+
+choicesView : Model -> Html Msg
+choicesView model =
+    let
+        activePlayer =
+            getActivePlayerHelper (List.filter (\player -> player.player_id == model.player_id) model.players |> List.head)
+    in
+    if activePlayer.seat == 0 && activePlayer.isActive == True then
+        button [ onClick ChooseCategory ] [ text "Choose Topic" ]
+    else if activePlayer.isActive == True then
+        button [ onClick ProgressGame ] [ text "Progress Game" ]
+    else
+        text ""
 
 
 viewDrawing : Model -> Html Msg
