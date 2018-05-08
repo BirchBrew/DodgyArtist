@@ -478,8 +478,7 @@ view model =
                     [ h2 [] [ text "Game:" ]
                     , playersListView model
                     , viewDrawing model
-                    , button [ onClick ChooseCategory ] [ text "Choose Topic" ]
-                    , button [ onClick ProgressGame ] [ text "Progress Game" ]
+                    , choicesView model
                     , nameTagView model
                     ]
                 , drawingSpace model
