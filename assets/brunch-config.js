@@ -49,7 +49,7 @@ exports.config = {
       mainModules: ["main.elm"],
       outputFolder: "../js",
       outputFile: "elm.js",
-      makeParameters: ["--warn --debug"] // TODO remove before going live
+      makeParameters: ["--warn"] // TODO remove before going live
       // makeParameters: ["--warn"] // TODO use this instead
     },
     babel: {

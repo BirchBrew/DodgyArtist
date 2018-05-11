@@ -90,7 +90,7 @@ defmodule FakeArtist.Hostess do
     |> Enum.join("")
   end
 
-  defp get_unique_name_helper(tables, name \\ "michelangelo", tries \\ 0) do
+  defp get_unique_name_helper(tables, name \\ "X", tries \\ 0) do
     unless Map.has_key?(tables, name) do
       {:ok, name}
     else
