@@ -1,7 +1,13 @@
 module Main exposing (..)
 
+import Bulma.CDN exposing (..)
+import Bulma.Columns exposing (..)
+import Bulma.Elements exposing (..)
+import Bulma.Form exposing (..)
+import Bulma.Layout exposing (..)
+import Bulma.Modifiers exposing (..)
 import Dict
-import Html exposing (Html, br, button, div, form, h2, hr, input, li, p, table, tbody, td, text, tr, ul)
+import Html exposing (Html, br, div, form, h2, hr, input, li, p, table, tbody, td, text, tr, ul)
 import Html.Attributes exposing (attribute, class, id, placeholder, style, type_)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import Json.Decode
@@ -13,6 +19,7 @@ import Phoenix.Push
 import Phoenix.Socket
 import Platform.Cmd
 import Pointer
+import String
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (class, fill, points, preserveAspectRatio, stroke, strokeWidth, viewBox)
 import Window
@@ -73,6 +80,7 @@ type Msg
     | Down Pointer.Event
     | Move Pointer.Event
     | Up Pointer.Event
+    | KeyDown Int
     | Resize Int Int
     | None
 
@@ -348,7 +356,7 @@ update msg model =
             ( model, Cmd.none )
 
         Table name ->
-            ( { model | tableRequest = Just name }, Cmd.none )
+            ( { model | tableRequest = Just <| transformInput name }, Cmd.none )
 
         NameTagChange nameTag ->
             let
@@ -521,8 +529,21 @@ update msg model =
         Up event ->
             handleMouseUp model
 
+        KeyDown key ->
+            case key of
+                13 ->
+                    update (RequestJoinTable (Maybe.withDefault "" model.tableRequest)) model
+
+                _ ->
+                    ( model, Cmd.none )
+
         Resize h w ->
             ( { model | windowHeight = h, windowWidth = w }, Cmd.none )
+
+
+transformInput : String -> String
+transformInput input =
+    input |> String.toUpper |> String.left 4
 
 
 
@@ -531,27 +552,121 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
+    Html.main_
+        [ style
+            [ ( "height", "100%" )
+            , ( "touch-action", "none" )
+            ]
+        ]
+        [ stylesheet
+        , viewRest model
+        ]
+
+
+viewWelcome : Model -> Html Msg
+viewWelcome model =
+    hero { heroModifiers | size = Large, color = Dark }
+        []
+        [ heroBody []
+            [ container
+                []
+                [ title H1 [] [ text "A Dodgy Artist" ]
+                , subtitle H1 [] [ text "Goes to NJ" ]
+                , br [] []
+                , columns columnsModifiers
+                    []
+                    [ column columnModifiers
+                        []
+                        [ newTableButton
+                        ]
+                    , column columnModifiers
+                        []
+                        [ connectedFields Left
+                            []
+                            [ tableInput model
+                            , joinTableButton model
+                            ]
+                        , controlHelp Danger [] [ text model.errorText ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+
+myButtonModifiers : ButtonModifiers msg
+myButtonModifiers =
+    { buttonModifiers | rounded = False, color = Info }
+
+
+newTableButton : Html Msg
+newTableButton =
+    button myButtonModifiers [ fullWidth, onClick RequestNewTable ] [ text "New Table" ]
+
+
+tableInput : Model -> Html Msg
+tableInput model =
+    controlInput { controlInputModifiers | rounded = False, expanded = True }
+        []
+        [ type_ "text"
+        , placeholder "enter table name"
+        , onInput Table
+        , Html.Attributes.value (Maybe.withDefault "" model.tableRequest)
+        , onKeyDown KeyDown
+        , Html.Attributes.autofocus True
+        ]
+        []
+
+
+joinTableButton : Model -> Html Msg
+joinTableButton model =
+    button myButtonModifiers [ onClick <| RequestJoinTable (Maybe.withDefault "" model.tableRequest) ] [ text "Join Table" ]
+
+
+onKeyDown : (Int -> Msg) -> Html.Attribute Msg
+onKeyDown msgTag =
+    Html.Events.on "keydown" (Json.Decode.map msgTag Html.Events.keyCode)
+
+
+viewLobby : Model -> Html Msg
+viewLobby model =
+    hero { heroModifiers | size = Large, color = Dark }
+        []
+        [ heroHead []
+            [ container
+                []
+                [ title H3 [] [ text <| Maybe.withDefault "" model.tableTopic ]
+                ]
+            ]
+        , heroBody []
+            [ container
+                []
+                [ nameTagView model
+                , section Spaced
+                    []
+                    [ controlInput controlInputModifiers
+                        []
+                        [ type_ "text"
+                        , placeholder "enter NameTag"
+                        , onInput NameTagChange
+                        , Html.Attributes.autofocus True
+                        ]
+                        []
+                    , button myButtonModifiers [ onClick PushStartGame ] [ text "go to Game" ]
+                    ]
+                ]
+            ]
+        ]
+
+
+viewRest : Model -> Html Msg
+viewRest model =
     case model.state.bigState of
         Welcome ->
-            div []
-                [ h2 [] [ text "A Phony Painter goes to NJ" ]
-                , p [] [ text "How may I serve you today?" ]
-                , button [ onClick RequestNewTable ] [ text "I want a new table" ]
-                , hr [] []
-                , input [ type_ "text", placeholder "enter table name", onInput Table ] []
-                , button [ onClick <| RequestJoinTable (Maybe.withDefault "" model.tableRequest) ] [ text "I'm meeting my friends" ]
-                , p [ style errStyle ] [ text model.errorText ]
-                ]
+            viewWelcome model
 
         Lobby ->
-            div []
-                [ h2 [] [ text <| Maybe.withDefault "" model.tableTopic ]
-
-                -- TODO replace with drawn NameTag
-                , input [ type_ "text", placeholder "enter NameTag", onInput NameTagChange ] []
-                , nameTagView model
-                , button [ onClick PushStartGame ] [ text "go to Game" ]
-                ]
+            viewLobby model
 
         Game ->
             div
@@ -630,9 +745,9 @@ choicesView model =
             active_player_id == model.playerId
     in
     if is_active && model.state.littleState == Pick then
-        button [ onClick ChooseCategory ] [ text "Choose Topic" ]
+        button buttonModifiers [ onClick ChooseCategory ] [ text "Choose Topic" ]
     else if is_active && model.state.littleState == Draw then
-        button [ onClick ProgressGame ] [ text "Progress Game" ]
+        button buttonModifiers [ onClick ProgressGame ] [ text "Progress Game" ]
     else
         text ""
 
@@ -790,10 +905,11 @@ disableContextMenu event =
 
 nameTagView : Model -> Html msg
 nameTagView model =
-    div []
-        [ h2 [] [ text "Painters" ]
-        , ul [] <| displayNameTags model.state.players
-        ]
+    section Spaced
+        []
+        (title H2 [] [ text "Painters" ]
+            :: displayNameTags model.state.players
+        )
 
 
 playersListView : Model -> Html msg
@@ -822,9 +938,10 @@ displayPlayer players =
 
 displayNameTags : Dict.Dict String Player -> List (Html.Html msg)
 displayNameTags playerMap =
-    List.map (\player -> li [] [ text player.name ]) (Dict.values playerMap)
-
-
-errStyle : List ( String, String )
-errStyle =
-    [ ( "color", "red" ) ]
+    List.map
+        (\player ->
+            div []
+                [ tag { tagModifiers | color = Warning } [] [ text player.name ]
+                ]
+        )
+        (Dict.values playerMap)
