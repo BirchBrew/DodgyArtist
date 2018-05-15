@@ -47,6 +47,9 @@ defmodule FakeArtist.Table do
       #900090
   )
 
+  @trickster_and_gm_win "Trickster and Game Master win!"
+  @players_win "The players win!"
+
   # Public API
   def start_link(default) do
     GenServer.start_link(__MODULE__, default)
@@ -78,6 +81,14 @@ defmodule FakeArtist.Table do
 
   def vote_for(pid, {voted_for, voted_by}) do
     GenServer.call(pid, {:vote_for, {voted_for, voted_by}})
+  end
+
+  def guess_topic(pid) do
+    GenServer.call(pid, :guess_topic)
+  end
+
+  def validate_guess(pid, is_correct) do
+    GenServer.call(pid, {:validate_guess, is_correct})
   end
 
   # Server Callbacks
@@ -259,17 +270,58 @@ defmodule FakeArtist.Table do
       ) do
     state = %{state | players: update_player_vote(players, voted_by, voted_for)}
 
+    is_trickster_picked? = is_trickster_picked?(players)
+
     state =
       if state |> everyone_has_voted() do
         Logger.info(fn -> "Game Over." end)
 
-        %{
-          state
-          | big_state: :end,
-            winner: get_winner(players)
-        }
+        if is_trickster_picked? do
+          Logger.info(fn -> "Trickster was chosen, so now he must choose..." end)
+          %{state | little_state: :tricky}
+        else
+          Logger.info(fn -> "Trickster wasn't chosen, so he wins!" end)
+
+          %{
+            state
+            | big_state: :end,
+              winner: @trickster_and_gm_win
+          }
+        end
       else
         state
+      end
+
+    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+
+    {:reply, :ok, state}
+  end
+
+  def handle_call(
+        :guess_topic,
+        _from,
+        state = %{
+          table_name: table_name
+        }
+      ) do
+    state = %{state | little_state: :check}
+    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+
+    {:reply, :ok, state}
+  end
+
+  def handle_call(
+        {:validate_guess, is_correct},
+        _from,
+        state = %{
+          table_name: table_name
+        }
+      ) do
+    state =
+      if is_correct do
+        %{state | winner: @trickster_and_gm_win, big_state: :end}
+      else
+        %{state | winner: @players_win, big_state: :end}
       end
 
     FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
@@ -346,20 +398,20 @@ defmodule FakeArtist.Table do
     Enum.count(state.players, fn {_k, v} -> v.voted_for == nil end) - game_master_vote == 0
   end
 
-  @spec get_winner(map()) :: binary()
-  defp get_winner(players) do
+  @spec is_trickster_picked?(map()) :: boolean()
+  defp is_trickster_picked?(players) do
     # TODO: Figure out who should win ties and make sure the right people win ties.
     map_of_counts =
       Enum.reduce(players, %{}, fn {_player_id, player}, acc ->
         Map.update(acc, player.voted_for, 1, &(&1 + 1))
       end)
 
-    {key, _value} = Enum.max_by(map_of_counts, fn {_k, v} -> v end)
+    {player_id, num_votes} = Enum.max_by(map_of_counts, fn {_k, v} -> v end)
 
-    if key == get_trickster_id(players) do
-      "Players win!"
+    if player_id == get_trickster_id(players) && num_votes > (length(players) - 1) / 2 do
+      true
     else
-      "Trickster and Game Master win!"
+      false
     end
   end
 

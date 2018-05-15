@@ -87,6 +87,8 @@ type Msg
     | KeyDown Int
     | Resize Int Int
     | VoteFor String
+    | GuessTopic
+    | Validate Bool
     | None
 
 
@@ -105,6 +107,8 @@ type LittleState
     = Pick
     | Draw
     | Vote
+    | Tricky
+    | Check
 
 
 type Role
@@ -248,6 +252,12 @@ littleStateDecoder =
 
                     "vote" ->
                         Json.Decode.succeed Vote
+
+                    "tricky" ->
+                        Json.Decode.succeed Tricky
+
+                    "check" ->
+                        Json.Decode.succeed Check
 
                     _ ->
                         Debug.crash "Unknown little state"
@@ -501,6 +511,20 @@ update msg model =
             , Cmd.map PhoenixMsg phxCmd
             )
 
+        GuessTopic ->
+            let
+                push =
+                    Phoenix.Push.init "guess_topic" (Maybe.withDefault "" model.tableTopic)
+
+                ( phxSocket, phxCmd ) =
+                    Phoenix.Socket.push push model.phxSocket
+            in
+            ( { model
+                | phxSocket = phxSocket
+              }
+            , Cmd.map PhoenixMsg phxCmd
+            )
+
         UpdateState raw ->
             case Json.Decode.decodeValue tableStateDecoder raw of
                 Ok tableState ->
@@ -532,6 +556,26 @@ update msg model =
 
                 push =
                     Phoenix.Push.init "vote_for" (Maybe.withDefault "" model.tableTopic)
+                        |> Phoenix.Push.withPayload payload
+
+                ( phxSocket, phxCmd ) =
+                    Phoenix.Socket.push push model.phxSocket
+            in
+            ( { model
+                | phxSocket = phxSocket
+              }
+            , Cmd.map PhoenixMsg phxCmd
+            )
+
+        Validate isCorrect ->
+            let
+                payload =
+                    Json.Encode.object
+                        [ ( "is_correct", Json.Encode.bool isCorrect )
+                        ]
+
+                push =
+                    Phoenix.Push.init "validate_guess" (Maybe.withDefault "" model.tableTopic)
                         |> Phoenix.Push.withPayload payload
 
                 ( phxSocket, phxCmd ) =
@@ -699,6 +743,21 @@ viewGame model =
                         []
                     else
                         [ votesView model ]
+
+                Tricky ->
+                    if isTrickster model then
+                        [ button myButtonModifiers [ onClick GuessTopic ] [ text "Guess Topic" ] ]
+                    else
+                        []
+
+                Check ->
+                    if isGameMaster model then
+                        [ text "Was the trickster's guess correct?"
+                        , button myButtonModifiers [ onClick <| Validate True ] [ text "Yes" ]
+                        , button myButtonModifiers [ onClick <| Validate False ] [ text "No" ]
+                        ]
+                    else
+                        []
             )
         ]
 
