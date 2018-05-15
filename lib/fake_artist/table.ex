@@ -113,6 +113,13 @@ defmodule FakeArtist.Table do
 
     players = Map.put(players, id, %FakeArtist.Player{})
 
+    state =
+      if connected_computers == 0 do
+        %{state | active_players: [id]}
+      else
+        state
+      end
+
     {:reply, :ok, %{state | players: players, connected_computers: connected_computers + 1}}
   end
 

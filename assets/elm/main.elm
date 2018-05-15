@@ -714,7 +714,7 @@ viewLobby model =
                         , Html.Attributes.autofocus True
                         ]
                         []
-                    , button myButtonModifiers [ onClick PushStartGame ] [ text "go to Game" ]
+                    , startGame model
                     ]
                 ]
             ]
@@ -776,6 +776,14 @@ viewRest model =
 
         End ->
             displayWinner model
+
+
+startGame : Model -> Html Msg
+startGame model =
+    if isActivePlayer model && (model.state.players |> Dict.size) >= 3 then
+        button myButtonModifiers [ onClick PushStartGame ] [ text "go to Game" ]
+    else
+        text ""
 
 
 displayWinner : Model -> Html msg
