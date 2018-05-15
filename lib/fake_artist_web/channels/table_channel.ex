@@ -42,4 +42,14 @@ defmodule FakeArtistWeb.TableChannel do
     FakeArtist.Table.vote_for(socket.assigns.table, {voted_for, socket.assigns.id})
     {:noreply, socket}
   end
+
+  def handle_in("guess_topic", _, socket) do
+    FakeArtist.Table.guess_topic(socket.assigns.table)
+    {:noreply, socket}
+  end
+
+  def handle_in("validate_guess", %{"is_correct" => is_correct}, socket) do
+    FakeArtist.Table.validate_guess(socket.assigns.table, is_correct)
+    {:noreply, socket}
+  end
 end
