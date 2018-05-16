@@ -184,6 +184,8 @@ defmodule FakeArtist.Table do
 
     FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
 
+    IO.inspect(state)
+
     {:reply, :ok, state}
   end
 
@@ -275,15 +277,16 @@ defmodule FakeArtist.Table do
           table_name: table_name
         }
       ) do
-    state = %{state | players: update_player_vote(players, voted_by, voted_for)}
+    players = update_player_vote(players, voted_by, voted_for)
+    state = %{state | players: players}
 
-    is_trickster_picked? = is_trickster_picked?(players)
+    trickster_is_picked = is_trickster_picked?(players)
 
     state =
       if state |> everyone_has_voted() do
         Logger.info(fn -> "Game Over." end)
 
-        if is_trickster_picked? do
+        if trickster_is_picked do
           Logger.info(fn -> "Trickster was chosen, so now he must choose..." end)
           %{state | little_state: :tricky}
         else
@@ -415,7 +418,7 @@ defmodule FakeArtist.Table do
 
     {player_id, num_votes} = Enum.max_by(map_of_counts, fn {_k, v} -> v end)
 
-    if player_id == get_trickster_id(players) && num_votes > (length(players) - 1) / 2 do
+    if player_id == get_trickster_id(players) && num_votes > (Enum.count(players) - 1) / 2 do
       true
     else
       false

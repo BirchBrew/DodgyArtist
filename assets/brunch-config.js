@@ -46,7 +46,7 @@ exports.config = {
   plugins: {
     elmBrunch: {
       elmFolder: "elm",
-      mainModules: ["main.elm"],
+      mainModules: ["Main.elm"],
       outputFolder: "../js",
       outputFile: "elm.js",
       // makeParameters: ["--warn --debug"] // TODO remove before going live
