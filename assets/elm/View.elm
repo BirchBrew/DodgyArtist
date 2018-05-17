@@ -137,16 +137,19 @@ viewGame : Model -> Html Msg
 viewGame model =
     hero { heroModifiers | size = Large, color = Dark }
         []
-        [ heroBody
+        [ heroHead []
+            [ container []
+                [ roleView model
+                ]
+            ]
+        , heroBody
             [ style [ ( "justify-content", "center" ) ]
             ]
-            [ container [] [ roleView model ]
-            , container [] <| littleStateView model
-            ]
+            (littleStateView model)
         ]
 
 
-littleStateView : Model -> List (Button Msg)
+littleStateView : Model -> List (Html Msg)
 littleStateView model =
     case model.state.littleState of
         Pick ->
@@ -154,8 +157,7 @@ littleStateView model =
             ]
 
         Draw ->
-            [ nameTagViewingSpace model
-            , fullDrawingSpace model
+            [ fullDrawingSpace model
             ]
 
         Vote ->
@@ -450,7 +452,7 @@ displayNameTags playerMap =
 
 roleView : Model -> Html Msg
 roleView model =
-    getRole model |> toString |> text
+    title H2 [] <| [ getRole model |> toString |> text ]
 
 
 getRole : Model -> Role
