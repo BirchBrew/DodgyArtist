@@ -32,24 +32,6 @@ update msg model =
         Table name ->
             ( { model | tableRequest = Just <| transformInput name }, Cmd.none )
 
-        NameTagChange nameTag ->
-            let
-                payload =
-                    Json.Encode.object [ ( "name", Json.Encode.string nameTag ) ]
-
-                push =
-                    Phoenix.Push.init "name_tag" (Maybe.withDefault "" model.tableTopic)
-                        |> Phoenix.Push.withPayload payload
-
-                ( phxSocket, phxCmd ) =
-                    Phoenix.Socket.push push model.phxSocket
-            in
-            ( { model
-                | phxSocket = phxSocket
-              }
-            , Cmd.map PhoenixMsg phxCmd
-            )
-
         RequestNewTable ->
             let
                 push =
@@ -122,8 +104,13 @@ update msg model =
 
         JoinChannel topic ->
             let
+                payload =
+                    Json.Encode.object
+                        [ ( "name", Json.Encode.string model.name )
+                        ]
+
                 channel =
-                    Phoenix.Channel.init topic
+                    Phoenix.Channel.init topic |> Phoenix.Channel.withPayload payload
 
                 ( phxSocket, phxCmd ) =
                     Phoenix.Socket.join channel model.phxSocket
@@ -251,6 +238,29 @@ update msg model =
 
         Resize h w ->
             ( { model | drawingSpaceEdgePx = calculateDrawingSpaceEdgePx h w }, Cmd.none )
+
+        EnterNewTableScreen ->
+            let
+                oldState =
+                    model.state
+
+                newState =
+                    { oldState | littleState = CreateTableScreen }
+            in
+            ( { model | state = newState }, Cmd.none )
+
+        EnterJoinTableScreen ->
+            let
+                oldState =
+                    model.state
+
+                newState =
+                    { oldState | littleState = JoinTableScreen }
+            in
+            ( { model | state = newState }, Cmd.none )
+
+        NameChange name ->
+            ( { model | name = name }, Cmd.none )
 
 
 transformInput : String -> String

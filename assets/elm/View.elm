@@ -37,6 +37,25 @@ viewWelcome model =
     hero { heroModifiers | size = Large, color = Dark }
         []
         [ heroBody []
+            (welcomeView model)
+        ]
+
+
+welcomeView : Model -> List (Html Msg)
+welcomeView model =
+    case model.state.littleState of
+        JoinTableScreen ->
+            [ nameInput model
+            , tableInput model
+            , joinTableButton model
+            ]
+
+        CreateTableScreen ->
+            [ nameInput model
+            , newTableButton
+            ]
+
+        _ ->
             [ container []
                 [ title H1 [] [ text "A Dodgy Artist" ]
                 , subtitle H1 [] [ text "Goes to NJ" ]
@@ -45,21 +64,19 @@ viewWelcome model =
                     []
                     [ column columnModifiers
                         []
-                        [ newTableButton
+                        [ newTableScreenButton
                         ]
                     , column columnModifiers
                         []
                         [ connectedFields Left
                             []
-                            [ tableInput model
-                            , joinTableButton model
+                            [ joinTableScreenButton
                             ]
                         , controlHelp Danger [] [ text model.errorText ]
                         ]
                     ]
                 ]
             ]
-        ]
 
 
 myButtonModifiers : ButtonModifiers msg
@@ -67,9 +84,31 @@ myButtonModifiers =
     { buttonModifiers | rounded = False, color = Info }
 
 
+newTableScreenButton : Html Msg
+newTableScreenButton =
+    button myButtonModifiers [ fullWidth, onClick EnterNewTableScreen ] [ text "New Table" ]
+
+
+joinTableScreenButton : Html Msg
+joinTableScreenButton =
+    button myButtonModifiers [ fullWidth, onClick EnterJoinTableScreen ] [ text "Join Table" ]
+
+
 newTableButton : Html Msg
 newTableButton =
     button myButtonModifiers [ fullWidth, onClick RequestNewTable ] [ text "New Table" ]
+
+
+nameInput : Model -> Html Msg
+nameInput model =
+    controlInput controlInputModifiers
+        []
+        [ type_ "text"
+        , placeholder "enter NameTag"
+        , onInput NameChange
+        , Html.Attributes.autofocus True
+        ]
+        []
 
 
 tableInput : Model -> Html Msg
@@ -110,15 +149,7 @@ viewLobby model =
                 [ nameTagView model
                 , section Spaced
                     []
-                    [ controlInput controlInputModifiers
-                        []
-                        [ type_ "text"
-                        , placeholder "enter NameTag"
-                        , onInput NameTagChange
-                        , Html.Attributes.autofocus True
-                        ]
-                        []
-                    , startGame model
+                    [ startGame model
                     ]
                 ]
             ]
@@ -180,6 +211,9 @@ littleStateView model =
                 ]
             else
                 []
+
+        _ ->
+            [ text "" ]
 
 
 viewRest : Model -> Html Msg
