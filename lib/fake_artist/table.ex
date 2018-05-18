@@ -356,13 +356,6 @@ defmodule FakeArtist.Table do
     Map.put(players, id, player_with_new_role)
   end
 
-  @spec update_player_name(map(), number(), atom()) :: map()
-  defp update_player_name(players, id, new_name) do
-    player = Map.get(players, id)
-    player_with_new_name = %{player | name: new_name}
-    Map.put(players, id, player_with_new_name)
-  end
-
   @spec update_player_vote(map(), number(), atom()) :: map()
   defp update_player_vote(players, id, new_vote) do
     player = Map.get(players, id)
