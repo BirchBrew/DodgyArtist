@@ -45,14 +45,44 @@ welcomeView : Model -> List (Html Msg)
 welcomeView model =
     case model.state.littleState of
         JoinTableScreen ->
-            [ nameInput model
-            , tableInput model
-            , joinTableButton model
+            [ container []
+                [ br [] []
+                , columns columnsModifiers
+                    []
+                    [ column columnModifiers
+                        []
+                        [ nameInput model
+                        ]
+                    , column columnModifiers
+                        []
+                        [ connectedFields Left
+                            []
+                            [ tableInput model
+                            ]
+                        , joinTableButton model
+                        ]
+                    ]
+                ]
             ]
 
         CreateTableScreen ->
-            [ nameInput model
-            , newTableButton
+            [ container []
+                [ br [] []
+                , columns columnsModifiers
+                    []
+                    [ column columnModifiers
+                        []
+                        [ nameInput model
+                        ]
+                    , column columnModifiers
+                        []
+                        [ connectedFields Left
+                            []
+                            [ newTableButton
+                            ]
+                        ]
+                    ]
+                ]
             ]
 
         _ ->
