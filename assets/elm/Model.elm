@@ -15,7 +15,6 @@ type Msg
     | JoinTable Json.Encode.Value
     | JoinTableError Json.Encode.Value
     | Table String
-    | NameTagChange NameTag
     | UpdateState Json.Encode.Value
     | PushStartGame
     | ChooseCategory
@@ -27,6 +26,9 @@ type Msg
     | VoteFor String
     | GuessTopic
     | Validate Bool
+    | EnterNewTableScreen
+    | EnterJoinTableScreen
+    | NameChange String
     | None
 
 
@@ -47,6 +49,8 @@ type LittleState
     | Vote
     | Tricky
     | Check
+    | JoinTableScreen
+    | CreateTableScreen
 
 
 type Role
@@ -103,4 +107,5 @@ type alias Model =
     , currentLine : Line
     , offCanvas : Bool
     , drawingSpaceEdgePx : Float
+    , name : String
     }

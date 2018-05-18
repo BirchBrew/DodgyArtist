@@ -1,7 +1,7 @@
 defmodule FakeArtistWeb.WelcomeChannel do
   use Phoenix.Channel
 
-  def join("welcome", %{}, socket) do
+  def join("welcome", _, socket) do
     {:ok, socket}
   end
 

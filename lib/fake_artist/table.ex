@@ -54,8 +54,8 @@ defmodule FakeArtist.Table do
     GenServer.start_link(__MODULE__, default)
   end
 
-  def add_self(pid, id) do
-    GenServer.call(pid, {:add_self, id})
+  def add_self(pid, id, player_name) do
+    GenServer.call(pid, {:add_self, id, player_name})
   end
 
   def update_name_tag(pid, {id, name_tag}) do
@@ -96,10 +96,11 @@ defmodule FakeArtist.Table do
   end
 
   def handle_call(
-        {:add_self, id},
+        {:add_self, id, player_name},
         {from_pid, _},
         state = %{
           players: players,
+          table_name: table_name,
           connected_computers: connected_computers
         }
       ) do
@@ -110,7 +111,7 @@ defmodule FakeArtist.Table do
       "player count increased from #{connected_computers} to #{connected_computers + 1}"
     end)
 
-    players = Map.put(players, id, %FakeArtist.Player{})
+    players = Map.put(players, id, %FakeArtist.Player{name: player_name})
 
     state =
       if connected_computers == 0 do
@@ -119,20 +120,7 @@ defmodule FakeArtist.Table do
         state
       end
 
-    {:reply, :ok, %{state | players: players, connected_computers: connected_computers + 1}}
-  end
-
-  def handle_call(
-        {:update_name_tag, {id, name_tag}},
-        _from,
-        state = %{
-          players: players,
-          table_name: table_name
-        }
-      ) do
-    players = update_player_name(players, id, name_tag)
-
-    state = %{state | players: players}
+    state = %{state | players: players, connected_computers: connected_computers + 1}
 
     FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
 
@@ -366,13 +354,6 @@ defmodule FakeArtist.Table do
     player = Map.get(players, id)
     player_with_new_role = %{player | role: new_role}
     Map.put(players, id, player_with_new_role)
-  end
-
-  @spec update_player_name(map(), number(), atom()) :: map()
-  defp update_player_name(players, id, new_name) do
-    player = Map.get(players, id)
-    player_with_new_name = %{player | name: new_name}
-    Map.put(players, id, player_with_new_name)
   end
 
   @spec update_player_vote(map(), number(), atom()) :: map()
