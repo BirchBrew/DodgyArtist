@@ -214,7 +214,8 @@ littleStateView model =
             choicesView model
 
         Draw ->
-            [ sharedDrawingSpace model
+            [ viewSubject model
+            , sharedDrawingSpace model
             ]
 
         Vote ->
@@ -225,7 +226,7 @@ littleStateView model =
 
         Tricky ->
             if isTrickster model then
-                [ button myButtonModifiers [ onClick GuessTopic ] [ text "Guess Topic" ] ]
+                [ button myButtonModifiers [ onClick GuessSubject ] [ text "Guess Topic" ] ]
             else
                 []
 
@@ -296,9 +297,26 @@ isActivePlayer model =
 choicesView : Model -> List (Html Msg)
 choicesView model =
     if isActivePlayer model then
-        [ button myButtonModifiers [ onClick ChooseCategory ] [ text "Choose Topic" ]
-        , soloDrawingSpace model
+        [ container []
+            [ button myButtonModifiers [ onClick ChooseSubject ] [ text "Submit Subject" ]
+            ]
+        , br [] []
+        , container []
+            [ soloDrawingSpace model
+            ]
         ]
+        -- [ columns columnsModifiers
+        --     []
+        --     [ column columnModifiers
+        --         []
+        --         [ button myButtonModifiers [ onClick ChooseSubject ] [ text "Submit Subject" ]
+        --         ]
+        --     , column columnModifiers
+        --         []
+        --         [ soloDrawingSpace model
+        --         ]
+        --     ]
+        -- ]
     else
         []
 
@@ -320,7 +338,15 @@ soloDrawingSpace model =
 
 nameTagViewingSpace : Model -> Html Msg
 nameTagViewingSpace model =
-    drawingSpaceWithRatio (getNameTagViewingSpaceAttributes model) 0.1 drawCurrentSoloDrawing model
+    drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.1 drawCurrentSoloDrawing model
+
+
+viewSubject : Model -> Html Msg
+viewSubject model =
+    if isTrickster model then
+        text ""
+    else
+        drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.2 drawSubject model
 
 
 drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> (Model -> List (Svg Msg)) -> Model -> Html Msg
@@ -382,8 +408,8 @@ maybeListenForSoloMove model =
         []
 
 
-getNameTagViewingSpaceAttributes : Model -> List (Html.Attribute Msg)
-getNameTagViewingSpaceAttributes model =
+readOnlyRenderAttributes : Model -> List (Html.Attribute Msg)
+readOnlyRenderAttributes model =
     [ getViewBox model
     , onContextMenu disableContextMenu
     ]
@@ -452,6 +478,24 @@ drawCurrentSoloDrawing { currentLine, currentSoloDrawing } =
                             Just <| polyline [ points (pointString line), stroke "black", strokeWidth "1em", fill "none" ] []
                 )
                 (currentLine :: currentSoloDrawing)
+    in
+    svgLines
+
+
+drawSubject : Model -> List (Svg msg)
+drawSubject { state } =
+    let
+        svgLines =
+            List.filterMap
+                (\line ->
+                    case line of
+                        [] ->
+                            Nothing
+
+                        _ ->
+                            Just <| polyline [ points (pointString line), stroke "black", strokeWidth "1em", fill "none" ] []
+                )
+                state.subject
     in
     svgLines
 

@@ -17,7 +17,7 @@ type Msg
     | Table String
     | UpdateState Json.Encode.Value
     | PushStartGame
-    | ChooseCategory
+    | ChooseSubject
     | Down Pointer.Event
     | Move Pointer.Event
     | MoveWithFreedom Pointer.Event
@@ -26,7 +26,7 @@ type Msg
     | KeyDown Int
     | Resize Int Int
     | VoteFor String
-    | GuessTopic
+    | GuessSubject
     | Validate Bool
     | EnterNewTableScreen
     | EnterJoinTableScreen
@@ -76,8 +76,7 @@ type alias Line =
 type alias TableState =
     { bigState : BigState
     , littleState : LittleState
-    , topic : Maybe String
-    , category : Maybe String
+    , subject : List Line
     , activePlayers : List String
     , winner : Maybe String
     , players : Dict.Dict String Player
