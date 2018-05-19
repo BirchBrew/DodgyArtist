@@ -58,8 +58,9 @@ welcomeView model =
                         [ connectedFields Left
                             []
                             [ tableInput model
+                            , joinTableButton model
                             ]
-                        , joinTableButton model
+                        , controlHelp Danger [] [ text model.errorText ]
                         ]
                     ]
                 ]
@@ -98,11 +99,7 @@ welcomeView model =
                         ]
                     , column columnModifiers
                         []
-                        [ connectedFields Left
-                            []
-                            [ joinTableScreenButton
-                            ]
-                        , controlHelp Danger [] [ text model.errorText ]
+                        [ joinTableScreenButton
                         ]
                     ]
                 ]
