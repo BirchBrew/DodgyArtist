@@ -211,11 +211,10 @@ littleStateView : Model -> List (Html Msg)
 littleStateView model =
     case model.state.littleState of
         Pick ->
-            [ choicesView model
-            ]
+            choicesView model
 
         Draw ->
-            [ fullDrawingSpace model
+            [ sharedDrawingSpace model
             ]
 
         Vote ->
@@ -294,12 +293,14 @@ isActivePlayer model =
     List.member model.playerId model.state.activePlayers
 
 
-choicesView : Model -> Html Msg
+choicesView : Model -> List (Html Msg)
 choicesView model =
-    if isActivePlayer model && model.state.littleState == Pick then
-        button myButtonModifiers [ onClick ChooseCategory ] [ text "Choose Topic" ]
+    if isActivePlayer model then
+        [ button myButtonModifiers [ onClick ChooseCategory ] [ text "Choose Topic" ]
+        , soloDrawingSpace model
+        ]
     else
-        text ""
+        []
 
 
 getViewBox : Model -> Html.Attribute msg
@@ -307,18 +308,23 @@ getViewBox model =
     viewBox <| "0 0 " ++ toString viewBoxLength ++ " " ++ toString viewBoxLength
 
 
-fullDrawingSpace : Model -> Html Msg
-fullDrawingSpace model =
-    drawingSpaceWithRatio (getDrawingSpaceAttributes model) 1.0 model
+sharedDrawingSpace : Model -> Html Msg
+sharedDrawingSpace model =
+    drawingSpaceWithRatio (sharedDrawingSpaceAttributes model) 1.0 drawPainting model
+
+
+soloDrawingSpace : Model -> Html Msg
+soloDrawingSpace model =
+    drawingSpaceWithRatio (soloDrawingSpaceAttributes model) 1.0 drawCurrentSoloDrawing model
 
 
 nameTagViewingSpace : Model -> Html Msg
 nameTagViewingSpace model =
-    drawingSpaceWithRatio (getNameTagViewingSpaceAttributes model) 0.1 model
+    drawingSpaceWithRatio (getNameTagViewingSpaceAttributes model) 0.1 drawCurrentSoloDrawing model
 
 
-drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> Model -> Html Msg
-drawingSpaceWithRatio attributes ratio model =
+drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> (Model -> List (Svg Msg)) -> Model -> Html Msg
+drawingSpaceWithRatio attributes ratio drawLinesFn model =
     let
         pxStr =
             toString (model.drawingSpaceEdgePx * ratio) ++ "px"
@@ -331,12 +337,12 @@ drawingSpaceWithRatio attributes ratio model =
             , ( "background-color", "#f5f5f5" )
             ]
         ]
-        [ svg attributes (drawLines model)
+        [ svg attributes (drawLinesFn model)
         ]
 
 
-getDrawingSpaceAttributes : Model -> List (Html.Attribute Msg)
-getDrawingSpaceAttributes model =
+sharedDrawingSpaceAttributes : Model -> List (Html.Attribute Msg)
+sharedDrawingSpaceAttributes model =
     [ getViewBox model
 
     -- pointer capture hack to continue "globally" the event anywhere on document.
@@ -344,6 +350,36 @@ getDrawingSpaceAttributes model =
     , onContextMenu disableContextMenu
     ]
         ++ maybeListenForMove model
+
+
+soloDrawingSpaceAttributes : Model -> List (Html.Attribute Msg)
+soloDrawingSpaceAttributes model =
+    [ getViewBox model
+
+    -- pointer capture hack to continue "globally" the event anywhere on document.
+    , attribute "onpointerdown" "event.target.setPointerCapture(event.pointerId);"
+    , onContextMenu disableContextMenu
+    ]
+        ++ maybeListenForSoloMove model
+
+
+maybeListenForSoloMove : Model -> List (Html.Attribute Msg)
+maybeListenForSoloMove model =
+    let
+        defaultList =
+            [ Pointer.onDown Down
+            , Pointer.onUp UpWithFreedom
+            ]
+    in
+    if isActivePlayer model then
+        case model.mouseDown of
+            True ->
+                Pointer.onMove MoveWithFreedom :: defaultList
+
+            False ->
+                defaultList
+    else
+        []
 
 
 getNameTagViewingSpaceAttributes : Model -> List (Html.Attribute Msg)
@@ -372,8 +408,8 @@ maybeListenForMove model =
         []
 
 
-drawLines : Model -> List (Svg msg)
-drawLines { state } =
+drawPainting : Model -> List (Svg msg)
+drawPainting { state } =
     let
         sortedPlayers =
             state.players
@@ -400,6 +436,24 @@ drawLines { state } =
             List.foldr svgLinesFolder ( [], [] ) svgLines
     in
     firstLines ++ secondLines
+
+
+drawCurrentSoloDrawing : Model -> List (Svg msg)
+drawCurrentSoloDrawing { currentLine, currentSoloDrawing } =
+    let
+        svgLines =
+            List.filterMap
+                (\line ->
+                    case line of
+                        [] ->
+                            Nothing
+
+                        _ ->
+                            Just <| polyline [ points (pointString line), stroke "black", strokeWidth "1em", fill "none" ] []
+                )
+                (currentLine :: currentSoloDrawing)
+    in
+    svgLines
 
 
 svgLinesFolder : List (Svg msg) -> ( List (Svg msg), List (Svg msg) ) -> ( List (Svg msg), List (Svg msg) )

@@ -54,6 +54,7 @@ initModelCmd windowWidth windowHeight socketServer =
         , errorText = ""
         , mouseDown = False
         , currentLine = []
+        , currentSoloDrawing = []
         , offCanvas = False
         , drawingSpaceEdgePx =
             calculateDrawingSpaceEdgePx windowWidth windowHeight

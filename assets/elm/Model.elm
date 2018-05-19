@@ -20,7 +20,9 @@ type Msg
     | ChooseCategory
     | Down Pointer.Event
     | Move Pointer.Event
+    | MoveWithFreedom Pointer.Event
     | Up Pointer.Event
+    | UpWithFreedom Pointer.Event
     | KeyDown Int
     | Resize Int Int
     | VoteFor String
@@ -105,6 +107,7 @@ type alias Model =
     , errorText : String
     , mouseDown : Bool
     , currentLine : Line
+    , currentSoloDrawing : List Line
     , offCanvas : Bool
     , drawingSpaceEdgePx : Float
     , name : String
