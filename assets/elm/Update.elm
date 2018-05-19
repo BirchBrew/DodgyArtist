@@ -253,7 +253,15 @@ update msg model =
 
         KeyDown key ->
             if key == enterKeyCode then
-                update (RequestJoinTable (Maybe.withDefault "" model.tableRequest)) model
+                case model.state.littleState of
+                    JoinTableScreen ->
+                        update (RequestJoinTable (Maybe.withDefault "" model.tableRequest)) model
+
+                    CreateTableScreen ->
+                        update RequestNewTable model
+
+                    _ ->
+                        ( model, Cmd.none )
             else
                 ( model, Cmd.none )
 

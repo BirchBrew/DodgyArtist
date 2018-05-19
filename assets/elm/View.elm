@@ -134,6 +134,7 @@ nameInput model =
         , placeholder "enter NameTag"
         , onInput NameChange
         , Html.Attributes.autofocus True
+        , onKeyDown KeyDown
         ]
         []
 
