@@ -2,8 +2,7 @@ defmodule FakeArtist.State do
   defstruct(
     big_state: :lobby,
     little_state: :pick,
-    topic: nil,
-    category: nil,
+    subject: [],
     active_players: [],
     winner: nil,
     players: %{},
@@ -74,16 +73,16 @@ defmodule FakeArtist.Table do
     GenServer.call(pid, {:progress_game, id})
   end
 
-  def choose_category(pid) do
-    GenServer.call(pid, :choose_category)
+  def choose_subject(pid, subject) do
+    GenServer.call(pid, {:choose_subject, subject})
   end
 
   def vote_for(pid, {voted_for, voted_by}) do
     GenServer.call(pid, {:vote_for, {voted_for, voted_by}})
   end
 
-  def guess_topic(pid) do
-    GenServer.call(pid, :guess_topic)
+  def guess_subject(pid) do
+    GenServer.call(pid, :guess_subject)
   end
 
   def validate_guess(pid, is_correct) do
@@ -177,7 +176,7 @@ defmodule FakeArtist.Table do
   end
 
   def handle_call(
-        :choose_category,
+        {:choose_subject, subject},
         _from,
         state = %{
           active_players: active_players,
@@ -189,7 +188,8 @@ defmodule FakeArtist.Table do
       state
       | active_players: get_active_players(players, active_players),
         remaining_turns: ((players |> Enum.count()) - 1) * @num_lines_per_artist,
-        little_state: :draw
+        little_state: :draw,
+        subject: subject
     }
 
     FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
@@ -295,7 +295,7 @@ defmodule FakeArtist.Table do
   end
 
   def handle_call(
-        :guess_topic,
+        :guess_subject,
         _from,
         state = %{
           table_name: table_name

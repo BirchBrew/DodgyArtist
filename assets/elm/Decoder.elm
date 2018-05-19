@@ -79,8 +79,7 @@ tableStateDecoder =
     Json.Decode.succeed TableState
         |> Json.Decode.Extra.andMap (Json.Decode.field "big_state" bigStateDecoder)
         |> Json.Decode.Extra.andMap (Json.Decode.field "little_state" littleStateDecoder)
-        |> Json.Decode.Extra.andMap (Json.Decode.field "topic" (Json.Decode.maybe Json.Decode.string))
-        |> Json.Decode.Extra.andMap (Json.Decode.field "category" (Json.Decode.maybe Json.Decode.string))
+        |> Json.Decode.Extra.andMap (Json.Decode.field "subject" <| Json.Decode.list lineDecoder)
         |> Json.Decode.Extra.andMap (Json.Decode.field "active_players" (Json.Decode.list Json.Decode.string))
         |> Json.Decode.Extra.andMap (Json.Decode.field "winner" (Json.Decode.maybe Json.Decode.string))
         |> Json.Decode.Extra.andMap (Json.Decode.field "players" (Json.Decode.dict playerDecoder))

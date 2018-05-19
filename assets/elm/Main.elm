@@ -54,14 +54,14 @@ initModelCmd windowWidth windowHeight socketServer =
         , errorText = ""
         , mouseDown = False
         , currentLine = []
+        , currentSoloDrawing = []
         , offCanvas = False
         , drawingSpaceEdgePx =
             calculateDrawingSpaceEdgePx windowWidth windowHeight
         , state =
             { bigState = Welcome
             , littleState = Pick
-            , topic = Nothing
-            , category = Nothing
+            , subject = []
             , activePlayers = []
             , winner = Nothing
             , players = Dict.empty

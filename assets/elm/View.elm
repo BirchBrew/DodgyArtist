@@ -12,7 +12,7 @@ import Html exposing (Html, br, div, h2, li, main_, text, ul)
 import Html.Attributes exposing (attribute, placeholder, style, type_)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode
-import Model exposing (BigState(..), LittleState(..), Model, Msg(..), Player, Point, Role(..))
+import Model exposing (BigState(..), Line, LittleState(..), Model, Msg(..), Player, Point, Role(..))
 import Mouse exposing (onContextMenu)
 import Pointer
 import Svg exposing (Svg, polyline, svg)
@@ -58,8 +58,9 @@ welcomeView model =
                         [ connectedFields Left
                             []
                             [ tableInput model
+                            , joinTableButton model
                             ]
-                        , joinTableButton model
+                        , controlHelp Danger [] [ text model.errorText ]
                         ]
                     ]
                 ]
@@ -98,11 +99,7 @@ welcomeView model =
                         ]
                     , column columnModifiers
                         []
-                        [ connectedFields Left
-                            []
-                            [ joinTableScreenButton
-                            ]
-                        , controlHelp Danger [] [ text model.errorText ]
+                        [ joinTableScreenButton
                         ]
                     ]
                 ]
@@ -214,11 +211,11 @@ littleStateView : Model -> List (Html Msg)
 littleStateView model =
     case model.state.littleState of
         Pick ->
-            [ choicesView model
-            ]
+            choicesView model
 
         Draw ->
-            [ fullDrawingSpace model
+            [ viewSubject model
+            , sharedDrawingSpace model
             ]
 
         Vote ->
@@ -229,7 +226,7 @@ littleStateView model =
 
         Tricky ->
             if isTrickster model then
-                [ button myButtonModifiers [ onClick GuessTopic ] [ text "Guess Topic" ] ]
+                [ button myButtonModifiers [ onClick GuessSubject ] [ text "Guess Topic" ] ]
             else
                 []
 
@@ -297,12 +294,31 @@ isActivePlayer model =
     List.member model.playerId model.state.activePlayers
 
 
-choicesView : Model -> Html Msg
+choicesView : Model -> List (Html Msg)
 choicesView model =
-    if isActivePlayer model && model.state.littleState == Pick then
-        button myButtonModifiers [ onClick ChooseCategory ] [ text "Choose Topic" ]
+    if isActivePlayer model then
+        [ container []
+            [ button myButtonModifiers [ onClick ChooseSubject ] [ text "Submit Subject" ]
+            ]
+        , br [] []
+        , container []
+            [ soloDrawingSpace model
+            ]
+        ]
+        -- [ columns columnsModifiers
+        --     []
+        --     [ column columnModifiers
+        --         []
+        --         [ button myButtonModifiers [ onClick ChooseSubject ] [ text "Submit Subject" ]
+        --         ]
+        --     , column columnModifiers
+        --         []
+        --         [ soloDrawingSpace model
+        --         ]
+        --     ]
+        -- ]
     else
-        text ""
+        []
 
 
 getViewBox : Model -> Html.Attribute msg
@@ -310,18 +326,31 @@ getViewBox model =
     viewBox <| "0 0 " ++ toString viewBoxLength ++ " " ++ toString viewBoxLength
 
 
-fullDrawingSpace : Model -> Html Msg
-fullDrawingSpace model =
-    drawingSpaceWithRatio (getDrawingSpaceAttributes model) 1.0 model
+sharedDrawingSpace : Model -> Html Msg
+sharedDrawingSpace model =
+    drawingSpaceWithRatio (sharedDrawingSpaceAttributes model) 1.0 drawPainting model
+
+
+soloDrawingSpace : Model -> Html Msg
+soloDrawingSpace model =
+    drawingSpaceWithRatio (soloDrawingSpaceAttributes model) 1.0 drawCurrentSoloDrawing model
 
 
 nameTagViewingSpace : Model -> Html Msg
 nameTagViewingSpace model =
-    drawingSpaceWithRatio (getNameTagViewingSpaceAttributes model) 0.1 model
+    drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.1 drawCurrentSoloDrawing model
 
 
-drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> Model -> Html Msg
-drawingSpaceWithRatio attributes ratio model =
+viewSubject : Model -> Html Msg
+viewSubject model =
+    if isTrickster model then
+        text ""
+    else
+        drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.2 drawSubject model
+
+
+drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> (Model -> List (Svg Msg)) -> Model -> Html Msg
+drawingSpaceWithRatio attributes ratio drawLinesFn model =
     let
         pxStr =
             toString (model.drawingSpaceEdgePx * ratio) ++ "px"
@@ -334,12 +363,12 @@ drawingSpaceWithRatio attributes ratio model =
             , ( "background-color", "#f5f5f5" )
             ]
         ]
-        [ svg attributes (drawLines model)
+        [ svg attributes (drawLinesFn model)
         ]
 
 
-getDrawingSpaceAttributes : Model -> List (Html.Attribute Msg)
-getDrawingSpaceAttributes model =
+sharedDrawingSpaceAttributes : Model -> List (Html.Attribute Msg)
+sharedDrawingSpaceAttributes model =
     [ getViewBox model
 
     -- pointer capture hack to continue "globally" the event anywhere on document.
@@ -349,8 +378,38 @@ getDrawingSpaceAttributes model =
         ++ maybeListenForMove model
 
 
-getNameTagViewingSpaceAttributes : Model -> List (Html.Attribute Msg)
-getNameTagViewingSpaceAttributes model =
+soloDrawingSpaceAttributes : Model -> List (Html.Attribute Msg)
+soloDrawingSpaceAttributes model =
+    [ getViewBox model
+
+    -- pointer capture hack to continue "globally" the event anywhere on document.
+    , attribute "onpointerdown" "event.target.setPointerCapture(event.pointerId);"
+    , onContextMenu disableContextMenu
+    ]
+        ++ maybeListenForSoloMove model
+
+
+maybeListenForSoloMove : Model -> List (Html.Attribute Msg)
+maybeListenForSoloMove model =
+    let
+        defaultList =
+            [ Pointer.onDown Down
+            , Pointer.onUp UpWithFreedom
+            ]
+    in
+    if isActivePlayer model then
+        case model.mouseDown of
+            True ->
+                Pointer.onMove MoveWithFreedom :: defaultList
+
+            False ->
+                defaultList
+    else
+        []
+
+
+readOnlyRenderAttributes : Model -> List (Html.Attribute Msg)
+readOnlyRenderAttributes model =
     [ getViewBox model
     , onContextMenu disableContextMenu
     ]
@@ -375,8 +434,8 @@ maybeListenForMove model =
         []
 
 
-drawLines : Model -> List (Svg msg)
-drawLines { state } =
+drawPainting : Model -> List (Svg msg)
+drawPainting { state } =
     let
         sortedPlayers =
             state.players
@@ -384,25 +443,45 @@ drawLines { state } =
                 |> List.sortBy .seat
 
         svgLines =
-            List.map
-                (\{ color, paintLines } ->
-                    List.filterMap
-                        (\line ->
-                            case line of
-                                [] ->
-                                    Nothing
-
-                                _ ->
-                                    Just <| polyline [ points (pointString line), stroke color, strokeWidth "1em", fill "none" ] []
-                        )
-                        paintLines
-                )
-                sortedPlayers
+            List.map (\{ color, paintLines } -> svgLinesHelper color paintLines) sortedPlayers
 
         ( firstLines, secondLines ) =
             List.foldr svgLinesFolder ( [], [] ) svgLines
     in
     firstLines ++ secondLines
+
+
+drawCurrentSoloDrawing : Model -> List (Svg msg)
+drawCurrentSoloDrawing { currentLine, currentSoloDrawing } =
+    let
+        svgLines =
+            -- TODO use player color here instead!
+            svgLinesHelper "black" (currentLine :: currentSoloDrawing)
+    in
+    svgLines
+
+
+drawSubject : Model -> List (Svg msg)
+drawSubject { state } =
+    let
+        svgLines =
+            svgLinesHelper "black" state.subject
+    in
+    svgLines
+
+
+svgLinesHelper : String -> List Line -> List (Svg msg)
+svgLinesHelper color lines =
+    List.filterMap
+        (\line ->
+            case line of
+                [] ->
+                    Nothing
+
+                _ ->
+                    Just <| polyline [ points (pointString line), stroke color, strokeWidth "1em", fill "none" ] []
+        )
+        lines
 
 
 svgLinesFolder : List (Svg msg) -> ( List (Svg msg), List (Svg msg) ) -> ( List (Svg msg), List (Svg msg) )

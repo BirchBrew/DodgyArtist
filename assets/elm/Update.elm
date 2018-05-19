@@ -153,10 +153,10 @@ update msg model =
                 Err error ->
                     ( { model | errorText = "couldn't update state" }, Cmd.none )
 
-        GuessTopic ->
+        GuessSubject ->
             let
                 push =
-                    Phoenix.Push.init "guess_topic" (Maybe.withDefault "" model.tableTopic)
+                    Phoenix.Push.init "guess_subject" (Maybe.withDefault "" model.tableTopic)
 
                 ( phxSocket, phxCmd ) =
                     Phoenix.Socket.push push model.phxSocket
@@ -167,16 +167,31 @@ update msg model =
             , Cmd.map PhoenixMsg phxCmd
             )
 
-        ChooseCategory ->
+        ChooseSubject ->
             let
+                linesAsEncodedStrings =
+                    List.map
+                        (\line ->
+                            List.map (\point -> Json.Encode.string point) line
+                        )
+                        model.currentSoloDrawing
+
+                payload =
+                    Json.Encode.object
+                        [ ( "subject", Json.Encode.list <| List.map Json.Encode.list linesAsEncodedStrings )
+                        ]
+
                 push =
-                    Phoenix.Push.init "choose_category" (Maybe.withDefault "" model.tableTopic)
+                    Phoenix.Push.init "choose_subject" (Maybe.withDefault "" model.tableTopic)
+                        |> Phoenix.Push.withPayload payload
 
                 ( phxSocket, phxCmd ) =
                     Phoenix.Socket.push push model.phxSocket
             in
             ( { model
                 | phxSocket = phxSocket
+                , currentSoloDrawing = []
+                , currentLine = []
               }
             , Cmd.map PhoenixMsg phxCmd
             )
@@ -227,8 +242,14 @@ update msg model =
         Move event ->
             handleMouseMove model event
 
+        MoveWithFreedom event ->
+            handleMouseMoveWithFreedom model event
+
         Up event ->
             handleMouseUp model
+
+        UpWithFreedom event ->
+            handleMouseUpWithFreedom model
 
         KeyDown key ->
             if key == enterKeyCode then
@@ -307,6 +328,22 @@ handleMouseUp model =
             ( { model | mouseDown = False, currentLine = [], phxSocket = phxSocket }, Cmd.map PhoenixMsg phxCmd )
 
 
+handleMouseUpWithFreedom : Model -> ( Model, Cmd Msg )
+handleMouseUpWithFreedom model =
+    case List.length model.currentLine of
+        -- nothing drawn, keep currentLine empty
+        0 ->
+            ( { model | mouseDown = False }, Cmd.none )
+
+        -- something was drawn, so save currentLine and start new one
+        _ ->
+            let
+                currentSoloDrawing =
+                    model.currentLine :: model.currentSoloDrawing
+            in
+            ( { model | mouseDown = False, currentLine = [], currentSoloDrawing = currentSoloDrawing }, Cmd.none )
+
+
 handleMouseMove : Model -> Pointer.Event -> ( Model, Cmd Msg )
 handleMouseMove model event =
     case model.mouseDown of
@@ -345,6 +382,29 @@ handleMouseMove model event =
                         ( { model | currentLine = newCurrentLine, offCanvas = True, phxSocket = phxSocket }, Cmd.map PhoenixMsg phxCmd )
                     else
                         ( { model | currentLine = newCurrentLine, phxSocket = phxSocket }, Cmd.map PhoenixMsg phxCmd )
+
+        False ->
+            ( model, Cmd.none )
+
+
+handleMouseMoveWithFreedom : Model -> Pointer.Event -> ( Model, Cmd Msg )
+handleMouseMoveWithFreedom model event =
+    case model.mouseDown of
+        True ->
+            let
+                ( x, y ) =
+                    event.pointer.offsetPos
+
+                currentPos =
+                    relativePos model event
+
+                currentLine =
+                    model.currentLine
+
+                newCurrentLine =
+                    translatePos currentPos :: currentLine
+            in
+            ( { model | currentLine = newCurrentLine }, Cmd.none )
 
         False ->
             ( model, Cmd.none )
