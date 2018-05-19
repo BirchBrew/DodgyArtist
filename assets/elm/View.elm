@@ -43,67 +43,24 @@ viewWelcome model =
 
 welcomeView : Model -> List (Html Msg)
 welcomeView model =
-    case model.state.littleState of
-        JoinTableScreen ->
-            [ container []
-                [ br [] []
-                , columns columnsModifiers
-                    []
-                    [ column columnModifiers
-                        []
-                        [ nameInput model
-                        ]
-                    , column columnModifiers
-                        []
-                        [ connectedFields Left
-                            []
-                            [ tableInput model
-                            , joinTableButton model
-                            ]
-                        , controlHelp Danger [] [ text model.errorText ]
-                        ]
-                    ]
+    [ container []
+        [ title H1 [] [ text "A Dodgy Artist" ]
+        , subtitle H1 [] [ text "Goes to NJ" ]
+        , br [] []
+        , columns columnsModifiers
+            []
+            [ column columnModifiers
+                []
+                [ newTableButton
+                ]
+            , column columnModifiers
+                []
+                [ tableInput model
+                , joinTableButton model
                 ]
             ]
-
-        CreateTableScreen ->
-            [ container []
-                [ br [] []
-                , columns columnsModifiers
-                    []
-                    [ column columnModifiers
-                        []
-                        [ nameInput model
-                        ]
-                    , column columnModifiers
-                        []
-                        [ connectedFields Left
-                            []
-                            [ newTableButton
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-
-        _ ->
-            [ container []
-                [ title H1 [] [ text "A Dodgy Artist" ]
-                , subtitle H1 [] [ text "Goes to NJ" ]
-                , br [] []
-                , columns columnsModifiers
-                    []
-                    [ column columnModifiers
-                        []
-                        [ newTableScreenButton
-                        ]
-                    , column columnModifiers
-                        []
-                        [ joinTableScreenButton
-                        ]
-                    ]
-                ]
-            ]
+        ]
+    ]
 
 
 myButtonModifiers : ButtonModifiers msg
@@ -111,32 +68,9 @@ myButtonModifiers =
     { buttonModifiers | rounded = False, color = Info }
 
 
-newTableScreenButton : Html Msg
-newTableScreenButton =
-    button myButtonModifiers [ fullWidth, onClick EnterNewTableScreen ] [ text "New Table" ]
-
-
-joinTableScreenButton : Html Msg
-joinTableScreenButton =
-    button myButtonModifiers [ fullWidth, onClick EnterJoinTableScreen ] [ text "Join Table" ]
-
-
 newTableButton : Html Msg
 newTableButton =
     button myButtonModifiers [ fullWidth, onClick RequestNewTable ] [ text "New Table" ]
-
-
-nameInput : Model -> Html Msg
-nameInput model =
-    controlInput controlInputModifiers
-        []
-        [ type_ "text"
-        , placeholder "enter NameTag"
-        , onInput NameChange
-        , Html.Attributes.autofocus True
-        , onKeyDown KeyDown
-        ]
-        []
 
 
 tableInput : Model -> Html Msg
@@ -173,20 +107,40 @@ viewLobby model =
                 ]
             ]
         , heroBody []
-            [ container []
-                [ nameTagView model
-                , section Spaced
-                    []
-                    [ startGame model
-                    ]
-                ]
+            [ lobbyView model
             ]
         ]
 
 
+lobbyView : Model -> Html Msg
+lobbyView model =
+    if model.hasEnteredName then
+        container []
+            [ section Spaced
+                []
+                [ playersListView model
+                , startGame model
+                ]
+            ]
+    else
+        container [] <| enterNameView model
+
+
+enterNameView : Model -> List (Html Msg)
+enterNameView model =
+    [ container []
+        [ button myButtonModifiers [ onClick ChooseName ] [ text "Pick Name" ]
+        ]
+    , br [] []
+    , container []
+        [ soloDrawingSpace model
+        ]
+    ]
+
+
 startGame : Model -> Html Msg
 startGame model =
-    if isActivePlayer model && (model.state.players |> Dict.size) >= 3 then
+    if isActivePlayer model && (getPlayersWithNames model |> List.length) >= 3 then
         button myButtonModifiers [ onClick PushStartGame ] [ text "go to Game" ]
     else
         text ""
@@ -199,6 +153,7 @@ viewGame model =
         [ heroHead []
             [ container []
                 [ roleView model
+                , playersListView model
                 ]
             ]
         , heroBody
@@ -223,7 +178,7 @@ littleStateView model =
             if isGameMaster model || hasVoted model == True then
                 []
             else
-                [ votesView model ]
+                [ text "Click the player you think was the trickster!" ]
 
         Tricky ->
             if isTrickster model then
@@ -329,17 +284,24 @@ getViewBox model =
 
 sharedDrawingSpace : Model -> Html Msg
 sharedDrawingSpace model =
-    drawingSpaceWithRatio (sharedDrawingSpaceAttributes model) 1.0 drawPainting model
+    drawingSpaceWithRatio (sharedDrawingSpaceAttributes model) 1.0 (drawPainting model) model
 
 
 soloDrawingSpace : Model -> Html Msg
 soloDrawingSpace model =
-    drawingSpaceWithRatio (soloDrawingSpaceAttributes model) 1.0 drawCurrentSoloDrawing model
+    let
+        myColor =
+            getColor model
+
+        lines =
+            drawLines (model.currentLine :: model.currentSoloDrawing) myColor
+    in
+    drawingSpaceWithRatio (soloDrawingSpaceAttributes model) 1.0 lines model
 
 
-nameTagViewingSpace : Model -> Html Msg
-nameTagViewingSpace model =
-    drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.1 drawCurrentSoloDrawing model
+nameTagViewingSpace : Model -> Player -> String -> Html Msg
+nameTagViewingSpace model player player_id =
+    drawingSpaceForVoting (readOnlyRenderAttributes model) 0.1 (drawLines player.name player.color) model player_id
 
 
 viewSubject : Model -> Html Msg
@@ -347,11 +309,18 @@ viewSubject model =
     if isTrickster model then
         text ""
     else
-        drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.2 drawSubject model
+        let
+            gameMasterColor =
+                model.state.players |> Dict.toList |> getGameMaster |> .color
+
+            lines =
+                drawLines model.state.subject gameMasterColor
+        in
+        drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.2 lines model
 
 
-drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> (Model -> List (Svg Msg)) -> Model -> Html Msg
-drawingSpaceWithRatio attributes ratio drawLinesFn model =
+drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> List (Svg Msg) -> Model -> Html Msg
+drawingSpaceWithRatio attributes ratio lines model =
     let
         pxStr =
             toString (model.drawingSpaceEdgePx * ratio) ++ "px"
@@ -364,7 +333,26 @@ drawingSpaceWithRatio attributes ratio drawLinesFn model =
             , ( "background-color", "#f5f5f5" )
             ]
         ]
-        [ svg attributes (drawLinesFn model)
+        [ svg attributes lines
+        ]
+
+
+drawingSpaceForVoting : List (Html.Attribute Msg) -> Float -> List (Svg Msg) -> Model -> String -> Html Msg
+drawingSpaceForVoting attributes ratio lines model player_id =
+    let
+        pxStr =
+            toString (model.drawingSpaceEdgePx * ratio) ++ "px"
+    in
+    box
+        [ style
+            [ ( "padding", "0px" )
+            , ( "height", pxStr )
+            , ( "width", pxStr )
+            , ( "background-color", "#f5f5f5" )
+            ]
+        , onClick <| VoteFor player_id
+        ]
+        [ svg attributes lines
         ]
 
 
@@ -398,7 +386,7 @@ maybeListenForSoloMove model =
             , Pointer.onUp UpWithFreedom
             ]
     in
-    if isActivePlayer model then
+    if isActivePlayer model || (model.state.bigState == Lobby && model.hasEnteredName == False) then
         case model.mouseDown of
             True ->
                 Pointer.onMove MoveWithFreedom :: defaultList
@@ -424,7 +412,7 @@ maybeListenForMove model =
             , Pointer.onUp Up
             ]
     in
-    if isActivePlayer model && model.state.littleState == Draw then
+    if isDrawing model || isWritingName model then
         case model.mouseDown of
             True ->
                 Pointer.onMove Move :: defaultList
@@ -433,6 +421,16 @@ maybeListenForMove model =
                 defaultList
     else
         []
+
+
+isDrawing : Model -> Bool
+isDrawing model =
+    isActivePlayer model && model.state.littleState == Draw
+
+
+isWritingName : Model -> Bool
+isWritingName model =
+    model.state.bigState == Lobby && model.hasEnteredName == False
 
 
 drawPainting : Model -> List (Svg msg)
@@ -452,21 +450,12 @@ drawPainting { state } =
     firstLines ++ secondLines
 
 
-drawCurrentSoloDrawing : Model -> List (Svg msg)
-drawCurrentSoloDrawing { currentLine, currentSoloDrawing } =
+drawLines : List Line -> String -> List (Svg msg)
+drawLines lines color =
     let
         svgLines =
             -- TODO use player color here instead!
-            svgLinesHelper "black" (currentLine :: currentSoloDrawing)
-    in
-    svgLines
-
-
-drawSubject : Model -> List (Svg msg)
-drawSubject { state } =
-    let
-        svgLines =
-            svgLinesHelper "black" state.subject
+            svgLinesHelper color lines
     in
     svgLines
 
@@ -501,6 +490,44 @@ svgLinesFolder lines ( f, s ) =
             Debug.crash "Like in Poker, you can't fold everything"
 
 
+playersListView : Model -> Html Msg
+playersListView model =
+    div []
+        [ h2 [] [ text "Painters" ]
+        , ul [] <| displayPlayers model
+        ]
+
+
+
+-- displayPlayer : List Player -> List (Html.Html msg)
+
+
+getPlayersWithNames : Model -> List Player
+getPlayersWithNames model =
+    getPlayersWithNamesTuple model |> List.map Tuple.second
+
+
+getPlayersWithNamesTuple : Model -> List ( String, Player )
+getPlayersWithNamesTuple model =
+    Dict.toList model.state.players |> List.filter hasName
+
+
+hasName : ( String, Player ) -> Bool
+hasName ( id, player ) =
+    player.name /= []
+
+
+displayPlayers : Model -> List (Html.Html Msg)
+displayPlayers model =
+    List.map
+        (\( player_id, player ) ->
+            li []
+                [ nameTagViewingSpace model player player_id ]
+        )
+    <|
+        getPlayersWithNamesTuple model
+
+
 pointString : List Point -> String
 pointString points =
     String.join " " points
@@ -509,23 +536,6 @@ pointString points =
 disableContextMenu : a -> Msg
 disableContextMenu event =
     None
-
-
-nameTagView : Model -> Html msg
-nameTagView model =
-    section Spaced
-        []
-        (title H2 [] [ text "Painters" ]
-            :: displayNameTags model.state.players
-        )
-
-
-votesView : Model -> Html Msg
-votesView model =
-    div []
-        [ h2 [] [ text "Who is the Dodgy Artist?" ]
-        , ul [] <| (playersExceptMeAndGameMaster model |> playerButtons)
-        ]
 
 
 playersExceptMeAndGameMaster : Model -> Dict.Dict String Player
@@ -539,59 +549,25 @@ removeGameMaster players =
         playerList =
             players |> Dict.toList
 
-        gameMaster =
-            List.filter (\player -> (player |> Tuple.second |> .role) == GameMaster) playerList |> List.head
+        gameMasterIndex =
+            getGameMasterIndex playerList
     in
-    Dict.remove (gameMaster |> guaranteeJust |> Tuple.first) players
+    Dict.remove gameMasterIndex players
 
 
-playerButtons : Dict.Dict String Player -> List (Html Msg)
-playerButtons players =
-    List.map
-        (\( playerId, playerRecord ) ->
-            button myButtonModifiers
-                [ onClick (VoteFor playerId) ]
-                [ text <| playerRecord.name
-                ]
-        )
-        (Dict.toList
-            players
-        )
+getGameMasterIndex : List ( String, Player ) -> String
+getGameMasterIndex playerList =
+    playerList |> getGameMasterTuple |> Tuple.first
 
 
-playersListView : Model -> Html msg
-playersListView model =
-    div []
-        [ h2 [] [ text "Painters" ]
-        , ul [] <| displayPlayer (Dict.values model.state.players)
-        ]
+getGameMaster : List ( String, Player ) -> Player
+getGameMaster playerList =
+    playerList |> getGameMasterTuple |> Tuple.second
 
 
-displayPlayer : List Player -> List (Html.Html msg)
-displayPlayer players =
-    List.map
-        (\player ->
-            li []
-                [ text ("Name: " ++ player.name)
-                , ul
-                    []
-                    [ li [] [ text ("Role: " ++ toString player.role) ]
-                    , li [] [ text ("Seat: " ++ toString player.seat) ]
-                    ]
-                ]
-        )
-        players
-
-
-displayNameTags : Dict.Dict String Player -> List (Html.Html msg)
-displayNameTags playerMap =
-    List.map
-        (\{ name } ->
-            div []
-                [ tag { tagModifiers | color = Warning } [] [ text name ]
-                ]
-        )
-        (Dict.values playerMap)
+getGameMasterTuple : List ( String, Player ) -> ( String, Player )
+getGameMasterTuple playerList =
+    (List.filter (\player -> (player |> Tuple.second |> .role) == GameMaster) playerList |> List.head) |> guaranteeJust
 
 
 roleView : Model -> Html Msg
@@ -602,6 +578,11 @@ roleView model =
 getRole : Model -> Role
 getRole model =
     Dict.get model.playerId model.state.players |> guaranteeJust |> .role
+
+
+getColor : Model -> String
+getColor model =
+    Dict.get model.playerId model.state.players |> guaranteeJust |> .color
 
 
 isGameMaster : Model -> Bool

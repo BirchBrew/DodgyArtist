@@ -8,17 +8,17 @@ defmodule FakeArtist.State do
     players: %{},
     table_name: nil,
     remaining_turns: 0,
-    connected_computers: 0
+    connected_computers: 0,
+    colors: []
   )
 end
 
 defmodule FakeArtist.Player do
   defstruct(
     seat: -1,
+    name: [],
     role: :player,
-    name: "",
     color: "black",
-    name_tag_lines: [],
     paint_lines: [],
     voted_for: nil
   )
@@ -53,12 +53,12 @@ defmodule FakeArtist.Table do
     GenServer.start_link(__MODULE__, default)
   end
 
-  def add_self(pid, id, player_name) do
-    GenServer.call(pid, {:add_self, id, player_name})
+  def add_self(pid, id) do
+    GenServer.call(pid, {:add_self, id})
   end
 
-  def update_name_tag(pid, {id, name_tag}) do
-    GenServer.call(pid, {:update_name_tag, {id, name_tag}})
+  def choose_name(pid, {id, name}) do
+    GenServer.call(pid, {:choose_name, {id, name}})
   end
 
   def start_game(pid) do
@@ -91,16 +91,18 @@ defmodule FakeArtist.Table do
 
   # Server Callbacks
   def init([name]) do
-    {:ok, %FakeArtist.State{table_name: name}}
+    shuffled_colors = Enum.shuffle(@colors)
+    {:ok, %FakeArtist.State{table_name: name, colors: shuffled_colors}}
   end
 
   def handle_call(
-        {:add_self, id, player_name},
+        {:add_self, id},
         {from_pid, _},
         state = %{
           players: players,
           table_name: table_name,
-          connected_computers: connected_computers
+          connected_computers: connected_computers,
+          colors: [random_color | new_colors]
         }
       ) do
     Logger.info(fn -> "started monitoring #{inspect(from_pid)}" end)
@@ -110,7 +112,7 @@ defmodule FakeArtist.Table do
       "player count increased from #{connected_computers} to #{connected_computers + 1}"
     end)
 
-    players = Map.put(players, id, %FakeArtist.Player{name: player_name})
+    players = Map.put(players, id, %FakeArtist.Player{color: random_color})
 
     state =
       if connected_computers == 0 do
@@ -119,7 +121,12 @@ defmodule FakeArtist.Table do
         state
       end
 
-    state = %{state | players: players, connected_computers: connected_computers + 1}
+    state = %{
+      state
+      | players: players,
+        connected_computers: connected_computers + 1,
+        colors: new_colors
+    }
 
     FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
 
@@ -148,14 +155,14 @@ defmodule FakeArtist.Table do
     last_seat_num = players_without_game_master |> Enum.count()
 
     seats = 1..last_seat_num |> Enum.to_list() |> Enum.shuffle()
-    shuffled_colors = Enum.shuffle(@colors)
-    players_with_seats = Enum.zip([seats, shuffled_colors, players_without_game_master])
+
+    players_with_seats = Enum.zip([seats, players_without_game_master])
 
     players =
       for(
-        {index, color, {player_id, player}} <- players_with_seats,
+        {index, {player_id, player}} <- players_with_seats,
         into: %{},
-        do: {player_id, %{player | seat: index, color: color}}
+        do: {player_id, %{player | seat: index}}
       )
 
     players = players |> Map.put(game_master_id, game_master)
@@ -191,6 +198,25 @@ defmodule FakeArtist.Table do
         little_state: :draw,
         subject: subject
     }
+
+    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+
+    {:reply, :ok, state}
+  end
+
+  def handle_call(
+        {:choose_name, {id, name}},
+        _from,
+        state = %{
+          players: players,
+          table_name: table_name
+        }
+      ) do
+    player = Map.get(players, id)
+
+    player_with_name = %{player | name: name}
+
+    state = %{state | players: Map.put(players, id, player_with_name)}
 
     FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
 
