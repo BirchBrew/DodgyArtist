@@ -12,7 +12,7 @@ import Html exposing (Html, br, div, h2, li, main_, text, ul)
 import Html.Attributes exposing (attribute, placeholder, style, type_)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode
-import Model exposing (BigState(..), LittleState(..), Model, Msg(..), Player, Point, Role(..))
+import Model exposing (BigState(..), Line, LittleState(..), Model, Msg(..), Player, Point, Role(..))
 import Mouse exposing (onContextMenu)
 import Pointer
 import Svg exposing (Svg, polyline, svg)
@@ -443,20 +443,7 @@ drawPainting { state } =
                 |> List.sortBy .seat
 
         svgLines =
-            List.map
-                (\{ color, paintLines } ->
-                    List.filterMap
-                        (\line ->
-                            case line of
-                                [] ->
-                                    Nothing
-
-                                _ ->
-                                    Just <| polyline [ points (pointString line), stroke color, strokeWidth "1em", fill "none" ] []
-                        )
-                        paintLines
-                )
-                sortedPlayers
+            List.map (\{ color, paintLines } -> svgLinesHelper color paintLines) sortedPlayers
 
         ( firstLines, secondLines ) =
             List.foldr svgLinesFolder ( [], [] ) svgLines
@@ -468,16 +455,8 @@ drawCurrentSoloDrawing : Model -> List (Svg msg)
 drawCurrentSoloDrawing { currentLine, currentSoloDrawing } =
     let
         svgLines =
-            List.filterMap
-                (\line ->
-                    case line of
-                        [] ->
-                            Nothing
-
-                        _ ->
-                            Just <| polyline [ points (pointString line), stroke "black", strokeWidth "1em", fill "none" ] []
-                )
-                (currentLine :: currentSoloDrawing)
+            -- TODO use player color here instead!
+            svgLinesHelper "black" (currentLine :: currentSoloDrawing)
     in
     svgLines
 
@@ -486,18 +465,23 @@ drawSubject : Model -> List (Svg msg)
 drawSubject { state } =
     let
         svgLines =
-            List.filterMap
-                (\line ->
-                    case line of
-                        [] ->
-                            Nothing
-
-                        _ ->
-                            Just <| polyline [ points (pointString line), stroke "black", strokeWidth "1em", fill "none" ] []
-                )
-                state.subject
+            svgLinesHelper "black" state.subject
     in
     svgLines
+
+
+svgLinesHelper : String -> List Line -> List (Svg msg)
+svgLinesHelper color lines =
+    List.filterMap
+        (\line ->
+            case line of
+                [] ->
+                    Nothing
+
+                _ ->
+                    Just <| polyline [ points (pointString line), stroke color, strokeWidth "1em", fill "none" ] []
+        )
+        lines
 
 
 svgLinesFolder : List (Svg msg) -> ( List (Svg msg), List (Svg msg) ) -> ( List (Svg msg), List (Svg msg) )
