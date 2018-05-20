@@ -207,24 +207,27 @@ update msg model =
             )
 
         VoteFor playerId ->
-            let
-                payload =
-                    Json.Encode.object
-                        [ ( "for", Json.Encode.string playerId )
-                        ]
+            if isValidVote playerId model then
+                let
+                    payload =
+                        Json.Encode.object
+                            [ ( "for", Json.Encode.string playerId )
+                            ]
 
-                push =
-                    Phoenix.Push.init "vote_for" (Maybe.withDefault "" model.tableTopic)
-                        |> Phoenix.Push.withPayload payload
+                    push =
+                        Phoenix.Push.init "vote_for" (Maybe.withDefault "" model.tableTopic)
+                            |> Phoenix.Push.withPayload payload
 
-                ( phxSocket, phxCmd ) =
-                    Phoenix.Socket.push push model.phxSocket
-            in
-            ( { model
-                | phxSocket = phxSocket
-              }
-            , Cmd.map PhoenixMsg phxCmd
-            )
+                    ( phxSocket, phxCmd ) =
+                        Phoenix.Socket.push push model.phxSocket
+                in
+                ( { model
+                    | phxSocket = phxSocket
+                  }
+                , Cmd.map PhoenixMsg phxCmd
+                )
+            else
+                ( model, Cmd.none )
 
         Validate isCorrect ->
             let

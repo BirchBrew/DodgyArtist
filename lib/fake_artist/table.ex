@@ -416,8 +416,10 @@ defmodule FakeArtist.Table do
   @spec everyone_has_voted(map()) :: boolean()
   defp everyone_has_voted(state) do
     game_master_vote = 1
+    trickster_vote = 1
+    votes_we_dont_need = game_master_vote + trickster_vote
 
-    Enum.count(state.players, fn {_k, v} -> v.voted_for == nil end) - game_master_vote == 0
+    Enum.count(state.players, fn {_k, v} -> v.voted_for == nil end) - votes_we_dont_need == 0
   end
 
   @spec is_trickster_picked?(map()) :: boolean()
