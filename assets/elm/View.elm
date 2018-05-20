@@ -17,6 +17,7 @@ import Mouse exposing (onContextMenu)
 import Pointer
 import Svg exposing (Svg, polyline, svg)
 import Svg.Attributes exposing (fill, pointerEvents, points, stroke, strokeWidth, viewBox)
+import Utility exposing (..)
 
 
 view : Model -> Html Msg
@@ -181,8 +182,8 @@ littleStateView model =
         Vote ->
             let
                 extraParts =
-                    if isGameMaster model || hasVoted model == True then
-                        []
+                    if isGameMaster model || isTrickster model || hasVoted model == True then
+                        [ text "Wait for all the players to vote" ]
                     else
                         [ text "Click the player you think was the trickster!" ]
             in
@@ -248,24 +249,14 @@ displayWinner model =
     text (Maybe.withDefault "" model.state.winner)
 
 
-guaranteeJust : Maybe a -> a
-guaranteeJust noLongerOptional =
-    case noLongerOptional of
-        Just something ->
-            something
-
-        Nothing ->
-            Debug.crash "noLongerOptional was Nothing after all!"
-
-
-getFirst : List String -> String
-getFirst players =
-    guaranteeJust (players |> List.head)
-
-
 isActivePlayer : Model -> Bool
 isActivePlayer model =
     List.member model.playerId model.state.activePlayers
+
+
+isPlayerActivePlayer : Model -> String -> Bool
+isPlayerActivePlayer model playerId =
+    List.member playerId model.state.activePlayers
 
 
 choicesView : Model -> List (Html Msg)
@@ -295,7 +286,7 @@ sharedDrawingSpace model =
 
 viewFinishedPainting : Model -> Html Msg
 viewFinishedPainting model =
-    drawingSpaceWithRatio (readOnlyRenderAttributes model) 1.0 (drawPainting model) model
+    drawingSpaceWithRatio (readOnlyRenderAttributes model False) 1.0 (drawPainting model) model
 
 
 soloDrawingSpace : Model -> Html Msg
@@ -310,9 +301,9 @@ soloDrawingSpace model =
     drawingSpaceWithRatio (soloDrawingSpaceAttributes model) 1.0 lines model
 
 
-nameTagViewingSpace : Model -> Player -> String -> Html Msg
-nameTagViewingSpace model player player_id =
-    drawingSpaceForVoting (readOnlyRenderAttributes model) 0.1 (drawLines player.name player.color) model player_id
+nameTagViewingSpace : Model -> Player -> String -> Bool -> Html Msg
+nameTagViewingSpace model player player_id shouldHighlight =
+    drawingSpaceForVoting (readOnlyRenderAttributes model shouldHighlight) 0.1 (drawLines player.name player.color) model player_id
 
 
 viewSubject : Model -> Html Msg
@@ -327,7 +318,7 @@ viewSubject model =
             lines =
                 drawLines model.state.subject gameMasterColor
         in
-        drawingSpaceWithRatio (readOnlyRenderAttributes model) 0.2 lines model
+        drawingSpaceWithRatio (readOnlyRenderAttributes model False) 0.2 lines model
 
 
 viewGuess : Model -> Html Msg
@@ -339,7 +330,7 @@ viewGuess model =
         lines =
             drawLines model.state.guess tricksterColor
     in
-    drawingSpaceWithRatio (readOnlyRenderAttributes model) 1.0 lines model
+    drawingSpaceWithRatio (readOnlyRenderAttributes model False) 1.0 lines model
 
 
 drawingSpaceWithRatio : List (Html.Attribute Msg) -> Float -> List (Svg Msg) -> Model -> Html Msg
@@ -420,10 +411,11 @@ maybeListenForSoloMove model =
         []
 
 
-readOnlyRenderAttributes : Model -> List (Html.Attribute Msg)
-readOnlyRenderAttributes model =
+readOnlyRenderAttributes : Model -> Bool -> List (Html.Attribute Msg)
+readOnlyRenderAttributes model shouldHighlight =
     [ getViewBox model
     , onContextMenu disableContextMenu
+    , getReadOnlyStyle shouldHighlight
     ]
 
 
@@ -516,8 +508,7 @@ svgLinesFolder lines ( f, s ) =
 playersListView : Model -> Html Msg
 playersListView model =
     div []
-        [ h2 [] [ text "Painters" ]
-        , ul [] <| displayPlayers model
+        [ columns columnsModifiers [] <| displayPlayers model
         ]
 
 
@@ -544,11 +535,54 @@ displayPlayers : Model -> List (Html.Html Msg)
 displayPlayers model =
     List.map
         (\( player_id, player ) ->
-            li []
-                [ nameTagViewingSpace model player player_id ]
+            let
+                shouldHighlight =
+                    shouldHighlightPlayer model player_id
+
+                myColumnModifiers =
+                    { columnModifiers
+                        | widths =
+                            { mobile = Just Bulma.Modifiers.Width1
+                            , tablet = Just Bulma.Modifiers.Width1
+                            , desktop = Just Bulma.Modifiers.Width1
+                            , fullHD = Just Bulma.Modifiers.Width1
+                            , widescreen = Just Bulma.Modifiers.Width1
+                            }
+                    }
+            in
+            column
+                myColumnModifiers
+                []
+                [ nameTagViewingSpace model player player_id shouldHighlight ]
         )
     <|
         getPlayersWithNamesTuple model
+
+
+shouldHighlightPlayer : Model -> String -> Bool
+shouldHighlightPlayer model playerId =
+    case model.state.littleState of
+        Vote ->
+            if hasVoted model then
+                hasVotedFor model playerId
+            else
+                -- tricksters and game masters can't vote
+                isBasicPlayer model && isValidVote playerId model
+
+        _ ->
+            isPlayerActivePlayer model playerId
+
+
+getReadOnlyStyle : Bool -> Html.Attribute msg
+getReadOnlyStyle shouldHighlight =
+    let
+        readOnlyStyle =
+            []
+    in
+    if shouldHighlight then
+        style <| [ ( "box-shadow", "0px -1px 31px 6px  rgba(237,7,7,1)" ) ] ++ readOnlyStyle
+    else
+        style readOnlyStyle
 
 
 pointString : List Point -> String
@@ -561,78 +595,6 @@ disableContextMenu event =
     None
 
 
-playersExceptMeAndGameMaster : Model -> Dict.Dict String Player
-playersExceptMeAndGameMaster model =
-    Dict.remove model.playerId model.state.players |> removeGameMaster
-
-
-removeGameMaster : Dict.Dict String Player -> Dict.Dict String Player
-removeGameMaster players =
-    let
-        playerList =
-            players |> Dict.toList
-
-        gameMasterIndex =
-            getGameMasterIndex playerList
-    in
-    Dict.remove gameMasterIndex players
-
-
-getGameMasterIndex : List ( String, Player ) -> String
-getGameMasterIndex playerList =
-    playerList |> getGameMasterTuple |> Tuple.first
-
-
-getGameMaster : List ( String, Player ) -> Player
-getGameMaster playerList =
-    playerList |> getGameMasterTuple |> Tuple.second
-
-
-getGameMasterTuple : List ( String, Player ) -> ( String, Player )
-getGameMasterTuple playerList =
-    (List.filter (\player -> (player |> Tuple.second |> .role) == GameMaster) playerList |> List.head) |> guaranteeJust
-
-
-getTricksterTuple : List ( String, Player ) -> ( String, Player )
-getTricksterTuple playerList =
-    (List.filter (\player -> (player |> Tuple.second |> .role) == Trickster) playerList |> List.head) |> guaranteeJust
-
-
-getTrickster : List ( String, Player ) -> Player
-getTrickster playerList =
-    playerList |> getTricksterTuple |> Tuple.second
-
-
 roleView : Model -> Html Msg
 roleView model =
     title H2 [] <| [ getRole model |> toString |> text ]
-
-
-getRole : Model -> Role
-getRole model =
-    Dict.get model.playerId model.state.players |> guaranteeJust |> .role
-
-
-getColor : Model -> String
-getColor model =
-    Dict.get model.playerId model.state.players |> guaranteeJust |> .color
-
-
-isGameMaster : Model -> Bool
-isGameMaster model =
-    getRole model == GameMaster
-
-
-isTrickster : Model -> Bool
-isTrickster model =
-    getRole model == Trickster
-
-
-isBasicPlayer : Model -> Bool
-isBasicPlayer model =
-    getRole model == BasicPlayer
-
-
-hasVoted : Model -> Bool
-hasVoted model =
-    (Dict.get model.playerId model.state.players |> guaranteeJust |> .votedFor) /= Nothing
