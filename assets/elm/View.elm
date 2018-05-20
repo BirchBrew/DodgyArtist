@@ -134,11 +134,11 @@ lobbyView model =
 enterNameView : Model -> List (Html Msg)
 enterNameView model =
     [ container []
-        [ button myButtonModifiers [ onClick ChooseName ] [ text "Pick Name" ]
+        [ soloDrawingSpace model
         ]
     , br [] []
     , container []
-        [ soloDrawingSpace model
+        [ button myButtonModifiers [ onClick ChooseName ] [ text "Pick Name" ]
         ]
     ]
 
@@ -175,8 +175,9 @@ littleStateView model =
             [ container [] <| choicesView model ]
 
         Draw ->
-            [ viewSubject model
-            , sharedDrawingSpace model
+            [ container [] [ sharedDrawingSpace model ]
+            , br [] []
+            , container [] [ viewSubject model ]
             ]
 
         Vote ->
@@ -263,11 +264,11 @@ choicesView : Model -> List (Html Msg)
 choicesView model =
     if isActivePlayer model then
         [ container []
-            [ button myButtonModifiers [ onClick ChooseSubject ] [ text "Submit Subject" ]
+            [ soloDrawingSpace model
             ]
         , br [] []
         , container []
-            [ soloDrawingSpace model
+            [ button myButtonModifiers [ onClick ChooseSubject ] [ text "Submit Subject" ]
             ]
         ]
     else
