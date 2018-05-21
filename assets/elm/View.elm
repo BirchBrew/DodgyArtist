@@ -308,7 +308,7 @@ getViewBox model =
 
 sharedDrawingSpace : Model -> Html Msg
 sharedDrawingSpace model =
-    drawingSpaceWithRatio (sharedDrawingSpaceAttributes model) 0.9 (drawPainting model) model
+    drawingSpaceWithRatio (sharedDrawingSpaceAttributes model) 1.0 (drawPainting model) model
 
 
 viewFinishedPainting : Model -> Html Msg

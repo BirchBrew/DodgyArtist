@@ -8,7 +8,7 @@ welcomeTopic =
 
 drawingWindowRatio : Int
 drawingWindowRatio =
-    80
+    75
 
 
 enterKeyCode : Int
