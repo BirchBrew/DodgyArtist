@@ -476,10 +476,10 @@ isWritingName model =
 
 
 drawPainting : Model -> List (Svg msg)
-drawPainting { state } =
+drawPainting model =
     let
         sortedPlayers =
-            state.players
+            model.state.players
                 |> Dict.values
                 |> List.sortBy .seat
 
@@ -488,8 +488,11 @@ drawPainting { state } =
 
         ( firstLines, secondLines ) =
             List.foldr svgLinesFolder ( [], [] ) svgLines
+
+        currentLine =
+            svgLinesHelper (getColor model) [ model.currentLine ]
     in
-    firstLines ++ secondLines
+    firstLines ++ secondLines ++ currentLine
 
 
 drawLines : List Line -> String -> List (Svg msg)
