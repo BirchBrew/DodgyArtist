@@ -1,1 +1,34 @@
 /* This file is for your main application css. */
+
+/* Mobile Specific CSS */
+
+@media screen and (max-width: 768px) {
+  #names {
+    height: 30%;
+  }
+  #art {
+    height: 70%;
+  }
+}
+
+/* Non-Mobile Specific CSS */
+
+@media screen and (min-width: 769px) {
+  #names {
+    height: 100%;
+  }
+  #art {
+    height: 100%;
+  }
+}
+
+/*
+div {
+  border: 1px solid black;
+} */
+
+html,
+body {
+  background-color: #363636;
+  overflow: hidden;
+}
