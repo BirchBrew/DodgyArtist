@@ -436,11 +436,8 @@ defmodule FakeArtist.Table do
 
   @spec everyone_has_voted(map()) :: boolean()
   defp everyone_has_voted(state) do
-    game_master_vote = 1
-    trickster_vote = 1
-    votes_we_dont_need = game_master_vote + trickster_vote
 
-    Enum.count(state.players, fn {_k, v} -> v.voted_for == nil end) - votes_we_dont_need == 0
+    Enum.count(state.players, fn {_k, v} -> v.voted_for == nil end) - get_count_players_dont_vote() == 0
   end
 
   @spec is_trickster_picked?(map()) :: boolean()
@@ -454,7 +451,8 @@ defmodule FakeArtist.Table do
 
     {player_id, num_votes} = Enum.max_by(map_of_counts, fn {_k, v} -> v end)
 
-    if player_id == get_trickster_id(players) && num_votes > (Enum.count(players) - 1) / 2 do
+    total_num_votes = Enum.count(players) - get_count_players_dont_vote()
+    if player_id == get_trickster_id(players) && num_votes > total_num_votes / 2 do
       true
     else
       false
@@ -467,5 +465,13 @@ defmodule FakeArtist.Table do
       players |> Map.to_list() |> Enum.find(fn {_id, player} -> player.role == :trickster end)
 
     trickster_id
+  end
+
+
+  @spec get_count_players_dont_vote() :: number()
+  defp get_count_players_dont_vote() do
+    game_master_vote = 1
+    trickster_vote = 1
+    game_master_vote + trickster_vote
   end
 end
