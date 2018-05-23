@@ -7,11 +7,12 @@ defmodule FakeArtist.State do
     active_players: [],
     winner: nil,
     players: %{},
-    table_name: nil,
+    table_topic: nil,
     remaining_turns: 0,
     connected_computers: 0,
     colors: [],
-    updates_pending: false
+    updates_pending: false,
+    pids_to_ids: %{}
   )
 end
 
@@ -53,8 +54,8 @@ defmodule FakeArtist.Table do
   @players_win "The players win!"
 
   # Public API
-  def start_link(default) do
-    GenServer.start_link(__MODULE__, default)
+  def start_link([topic]) do
+    GenServer.start_link(__MODULE__, topic)
   end
 
   def add_self(pid, id) do
@@ -94,9 +95,9 @@ defmodule FakeArtist.Table do
   end
 
   # Server Callbacks
-  def init([name]) do
+  def init(topic) do
     shuffled_colors = Enum.shuffle(@colors)
-    {:ok, %FakeArtist.State{table_name: name, colors: shuffled_colors}}
+    {:ok, %FakeArtist.State{table_topic: topic, colors: shuffled_colors}}
   end
 
   def handle_call(
@@ -104,9 +105,10 @@ defmodule FakeArtist.Table do
         {from_pid, _},
         state = %{
           players: players,
-          table_name: table_name,
+          table_topic: table_topic,
           connected_computers: connected_computers,
-          colors: [random_color | new_colors]
+          colors: [random_color | new_colors],
+          pids_to_ids: pids_to_ids
         }
       ) do
     Logger.info(fn -> "started monitoring #{inspect(from_pid)}" end)
@@ -129,10 +131,15 @@ defmodule FakeArtist.Table do
       state
       | players: players,
         connected_computers: connected_computers + 1,
-        colors: new_colors
+        colors: new_colors,
+        pids_to_ids: Map.put(pids_to_ids, from_pid, id)
     }
 
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     {:reply, :ok, state}
   end
@@ -142,7 +149,7 @@ defmodule FakeArtist.Table do
         _from,
         state = %{
           players: players,
-          table_name: table_name
+          table_topic: table_topic
         }
       ) do
     player_ids = Map.keys(players)
@@ -182,9 +189,16 @@ defmodule FakeArtist.Table do
     # we'll batch some of the "near-real-time" updates, like collaborative drawing,
     # for performance reasons
     :timer.send_interval(@tick_timer_in_ms, :update_tick)
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     IO.inspect(state)
+
+    :ok = FakeArtist.Hostess.forget_table_pid(self())
 
     {:reply, :ok, state}
   end
@@ -195,7 +209,7 @@ defmodule FakeArtist.Table do
         state = %{
           active_players: active_players,
           players: players,
-          table_name: table_name
+          table_topic: table_topic
         }
       ) do
     num_lines_per_artist = 2
@@ -208,7 +222,11 @@ defmodule FakeArtist.Table do
         subject: subject
     }
 
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     {:reply, :ok, state}
   end
@@ -218,7 +236,7 @@ defmodule FakeArtist.Table do
         _from,
         state = %{
           players: players,
-          table_name: table_name
+          table_topic: table_topic
         }
       ) do
     player = Map.get(players, id)
@@ -227,7 +245,11 @@ defmodule FakeArtist.Table do
 
     state = %FakeArtist.State{state | players: Map.put(players, id, player_with_name)}
 
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     {:reply, :ok, state}
   end
@@ -259,7 +281,7 @@ defmodule FakeArtist.Table do
           active_players: active_players,
           players: players,
           remaining_turns: remaining_turns,
-          table_name: table_name
+          table_topic: table_topic
         }
       ) do
     player = %{paint_lines: paint_lines} = Map.get(players, id)
@@ -284,7 +306,11 @@ defmodule FakeArtist.Table do
         }
       end
 
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     {:reply, :ok, state}
   end
@@ -294,7 +320,7 @@ defmodule FakeArtist.Table do
         _from,
         state = %{
           players: players,
-          table_name: table_name
+          table_topic: table_topic
         }
       ) do
     players = update_player_vote(players, voted_by, voted_for)
@@ -327,7 +353,11 @@ defmodule FakeArtist.Table do
         state
       end
 
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     {:reply, :ok, state}
   end
@@ -336,11 +366,16 @@ defmodule FakeArtist.Table do
         {:guess_subject, subject},
         _from,
         state = %{
-          table_name: table_name
+          table_topic: table_topic
         }
       ) do
     state = %FakeArtist.State{state | little_state: :check, guess: subject}
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     {:reply, :ok, state}
   end
@@ -349,7 +384,7 @@ defmodule FakeArtist.Table do
         {:validate_guess, is_correct},
         _from,
         state = %{
-          table_name: table_name
+          table_topic: table_topic
         }
       ) do
     state =
@@ -359,14 +394,23 @@ defmodule FakeArtist.Table do
         %FakeArtist.State{state | winner: @players_win, big_state: :end}
       end
 
-    FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+    FakeArtistWeb.Endpoint.broadcast(
+      "table:#{table_topic}",
+      "update",
+      Map.delete(state, :pids_to_ids)
+    )
 
     {:reply, :ok, state}
   end
 
   def handle_info(
-        {:DOWN, _ref, :process, _from, _reason},
-        state = %{connected_computers: connected_computers}
+        {:DOWN, _ref, :process, pid, _reason},
+        state = %{
+          connected_computers: connected_computers,
+          players: players,
+          pids_to_ids: pids_to_ids,
+          table_topic: table_topic
+        }
       ) do
     Logger.info(fn -> "table lost connection." end)
 
@@ -378,10 +422,20 @@ defmodule FakeArtist.Table do
       Logger.info(fn -> "suicide" end)
       {:stop, :shutdown, state}
     else
+      {dead_id, pids_to_ids} = Map.pop(pids_to_ids, pid)
+
       state = %{
         state
-        | connected_computers: connected_computers - 1
+        | connected_computers: connected_computers - 1,
+          pids_to_ids: pids_to_ids,
+          players: Map.delete(players, dead_id)
       }
+
+      FakeArtistWeb.Endpoint.broadcast(
+        "table:#{table_topic}",
+        "update",
+        Map.delete(state, :pids_to_ids)
+      )
 
       {:noreply, state}
     end
@@ -390,12 +444,17 @@ defmodule FakeArtist.Table do
   def handle_info(
         :update_tick,
         %FakeArtist.State{
-          table_name: table_name,
+          table_topic: table_topic,
           updates_pending: updates_pending
         } = state
       ) do
     if updates_pending do
-      FakeArtistWeb.Endpoint.broadcast("table:#{table_name}", "update", state)
+      FakeArtistWeb.Endpoint.broadcast(
+        "table:#{table_topic}",
+        "update",
+        Map.delete(state, :pids_to_ids)
+      )
+
       {:noreply, %FakeArtist.State{state | updates_pending: false}}
     else
       {:noreply, state}
@@ -436,8 +495,8 @@ defmodule FakeArtist.Table do
 
   @spec everyone_has_voted(map()) :: boolean()
   defp everyone_has_voted(state) do
-
-    Enum.count(state.players, fn {_k, v} -> v.voted_for == nil end) - get_count_players_dont_vote() == 0
+    Enum.count(state.players, fn {_k, v} -> v.voted_for == nil end) -
+      get_count_players_dont_vote() == 0
   end
 
   @spec is_trickster_picked?(map()) :: boolean()
@@ -452,6 +511,7 @@ defmodule FakeArtist.Table do
     {player_id, num_votes} = Enum.max_by(map_of_counts, fn {_k, v} -> v end)
 
     total_num_votes = Enum.count(players) - get_count_players_dont_vote()
+
     if player_id == get_trickster_id(players) && num_votes > total_num_votes / 2 do
       true
     else
@@ -466,7 +526,6 @@ defmodule FakeArtist.Table do
 
     trickster_id
   end
-
 
   @spec get_count_players_dont_vote() :: number()
   defp get_count_players_dont_vote() do

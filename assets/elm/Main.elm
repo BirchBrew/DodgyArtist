@@ -43,7 +43,7 @@ initPhxSocket socketServer =
 
 
 
--- TODO remove this `withDebug` before going live
+-- -- TODO remove this `withDebug` before going live
 -- |> Phoenix.Socket.withDebug
 
 
@@ -53,6 +53,7 @@ initModelCmd windowWidth windowHeight socketServer =
         (JoinChannel welcomeTopic)
         { phxSocket = initPhxSocket socketServer
         , tableRequest = Nothing
+        , tableName = Nothing
         , tableTopic = Nothing
         , errorText = ""
         , mouseDown = False
@@ -69,7 +70,6 @@ initModelCmd windowWidth windowHeight socketServer =
             , activePlayers = []
             , winner = Nothing
             , players = Dict.empty
-            , tableName = ""
             , remainingTurns = 0
             , connectedComputers = 0
             }
