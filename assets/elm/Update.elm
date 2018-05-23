@@ -71,23 +71,17 @@ update msg model =
             case Json.Decode.decodeValue joinTableStateDecoder raw of
                 Ok joinTable ->
                     let
-                        tableTopic =
-                            "table:" ++ joinTable.table
-
-                        st =
-                            model.state
-
-                        newState =
-                            { st | bigState = Lobby }
+                        topic =
+                            "table:" ++ joinTable.topic
 
                         newModel =
-                            { model | tableTopic = Just tableTopic, playerId = joinTable.playerId, state = newState }
+                            { model | tableName = Just joinTable.table, tableTopic = Just topic, playerId = joinTable.playerId, state = model.state }
 
                         ( newLeaveModel, leaveCmd ) =
                             update LeaveWelcomeChannel newModel
 
                         ( newJoinModel, joinCmd ) =
-                            update (JoinChannel <| tableTopic) newLeaveModel
+                            update (JoinChannel <| topic) newLeaveModel
                     in
                     ( newJoinModel, Cmd.batch [ leaveCmd, joinCmd ] )
 
@@ -306,7 +300,7 @@ update msg model =
 
 transformInput : String -> String
 transformInput input =
-    input |> String.toUpper |> String.left 4
+    input |> String.toUpper |> String.left 1
 
 
 translatePos : ( Float, Float ) -> String

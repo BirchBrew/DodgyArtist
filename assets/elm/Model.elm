@@ -78,7 +78,6 @@ type alias TableState =
     , activePlayers : List String
     , winner : Maybe String
     , players : Dict.Dict String Player
-    , tableName : String
     , remainingTurns : Int
     , connectedComputers : Int
     }
@@ -98,6 +97,7 @@ type alias Model =
     { phxSocket : Phoenix.Socket.Socket Msg
     , state : TableState
     , playerId : String
+    , tableName : Maybe String
     , tableTopic : Maybe Topic
     , tableRequest : Maybe String
     , errorText : String

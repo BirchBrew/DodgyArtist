@@ -1,13 +1,13 @@
 defmodule FakeArtistWeb.TableChannel do
   use Phoenix.Channel
 
-  def join("table:" <> table_name, _, socket) do
-    send(self(), {:after_join, table_name})
+  def join("table:" <> table_topic, _, socket) do
+    send(self(), {:after_join, table_topic})
     {:ok, socket}
   end
 
-  def handle_info({:after_join, table_name}, socket) do
-    table_pid = FakeArtist.Hostess.get_table_pid(table_name)
+  def handle_info({:after_join, table_topic}, socket) do
+    table_pid = FakeArtist.Hostess.get_table_pid(table_topic)
     FakeArtist.Table.add_self(table_pid, socket.assigns.id)
     socket = assign(socket, :table, table_pid)
     {:noreply, socket}

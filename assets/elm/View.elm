@@ -619,7 +619,7 @@ roleView : Model -> Html Msg
 roleView model =
     case model.state.bigState of
         Lobby ->
-            title H3 [ coolStyle ] [ text <| Maybe.withDefault "" model.tableTopic ]
+            title H3 [ coolStyle ] [ text <| Maybe.withDefault "" model.tableName ]
 
         Game ->
             title H3 [ coolStyle ] <| [ getRole model |> toString |> text ]

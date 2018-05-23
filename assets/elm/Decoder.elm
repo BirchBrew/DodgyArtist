@@ -84,7 +84,6 @@ tableStateDecoder =
         |> Json.Decode.Extra.andMap (Json.Decode.field "active_players" (Json.Decode.list Json.Decode.string))
         |> Json.Decode.Extra.andMap (Json.Decode.field "winner" (Json.Decode.maybe Json.Decode.string))
         |> Json.Decode.Extra.andMap (Json.Decode.field "players" (Json.Decode.dict playerDecoder))
-        |> Json.Decode.Extra.andMap (Json.Decode.field "table_name" Json.Decode.string)
         |> Json.Decode.Extra.andMap (Json.Decode.field "remaining_turns" Json.Decode.int)
         |> Json.Decode.Extra.andMap (Json.Decode.field "connected_computers" Json.Decode.int)
 
@@ -129,11 +128,13 @@ gameDecoder =
 type alias JoinTableState =
     { table : String
     , playerId : String
+    , topic : String
     }
 
 
 joinTableStateDecoder : Json.Decode.Decoder JoinTableState
 joinTableStateDecoder =
-    Json.Decode.map2 JoinTableState
+    Json.Decode.map3 JoinTableState
         (Json.Decode.field "table" Json.Decode.string)
         (Json.Decode.field "id" Json.Decode.string)
+        (Json.Decode.field "topic" Json.Decode.string)
