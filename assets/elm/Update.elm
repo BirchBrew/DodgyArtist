@@ -142,6 +142,9 @@ update msg model =
                 Err error ->
                     ( { model | errorText = "couldn't update state" }, Cmd.none )
 
+        ClearCurrentLine _ ->
+            ( { model | currentLine = [], drawDisabled = False }, Cmd.none )
+
         GuessSubject ->
             let
                 linesAsEncodedStrings =
@@ -335,11 +338,12 @@ handleMouseUp model =
             let
                 push =
                     Phoenix.Push.init "progress_game" (Maybe.withDefault "" model.tableTopic)
+                        |> Phoenix.Push.onOk ClearCurrentLine
 
                 ( phxSocket, phxCmd ) =
                     Phoenix.Socket.push push model.phxSocket
             in
-            ( { model | mouseDown = False, currentLine = [], phxSocket = phxSocket }, Cmd.map PhoenixMsg phxCmd )
+            ( { model | mouseDown = False, drawDisabled = True, phxSocket = phxSocket }, Cmd.map PhoenixMsg phxCmd )
 
 
 handleMouseUpWithFreedom : Model -> ( Model, Cmd Msg )

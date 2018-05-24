@@ -16,6 +16,7 @@ type Msg
     | JoinTableError Json.Encode.Value
     | Table String
     | UpdateState Json.Encode.Value
+    | ClearCurrentLine Json.Encode.Value
     | PushStartGame
     | ChooseSubject
     | Down Pointer.Event
@@ -103,6 +104,7 @@ type alias Model =
     , errorText : String
     , mouseDown : Bool
     , currentLine : Line
+    , drawDisabled : Bool
     , currentSoloDrawing : List Line
     , offCanvas : Bool
     , drawingSpaceEdgePx : Float

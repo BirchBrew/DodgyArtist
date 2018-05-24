@@ -58,6 +58,7 @@ initModelCmd windowWidth windowHeight socketServer =
         , errorText = ""
         , mouseDown = False
         , currentLine = []
+        , drawDisabled = False
         , currentSoloDrawing = []
         , offCanvas = False
         , drawingSpaceEdgePx =
