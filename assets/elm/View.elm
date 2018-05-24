@@ -148,7 +148,7 @@ littleStateView model =
                 ]
                 [ sharedDrawingSpace model ]
             , br [] []
-            , container [] [ viewSubject model ]
+            , container [] [ viewSubject False model ]
             ]
 
         Vote ->
@@ -157,7 +157,7 @@ littleStateView model =
                     if isGameMaster model || isTrickster model || hasVoted model == True then
                         [ title H3 [ coolStyle ] [ text "Wait for all the players to vote" ] ]
                     else
-                        [ title H3 [ coolStyle ] [ text "Click the player you think was the trickster!" ] ]
+                        [ title H6 [ coolStyle ] [ text "Click the player you think was the trickster!" ] ]
             in
             extraParts ++ [ viewFinishedPainting model ]
 
@@ -171,7 +171,7 @@ littleStateView model =
             let
                 extraParts =
                     if isGameMaster model then
-                        [ text "Was the trickster's guess correct?"
+                        [ title H3 [ coolStyle ] [ text "Was the trickster's guess correct?" ]
                         , button myButtonModifiers [ onClick <| Validate True ] [ text "Yes" ]
                         , button myButtonModifiers [ onClick <| Validate False ] [ text "No" ]
                         ]
@@ -211,7 +211,7 @@ viewRest model =
         End ->
             div []
                 [ displayWinner model
-                , viewSubject model
+                , viewSubject True model
                 , viewFinishedPainting model
                 ]
 
@@ -271,9 +271,9 @@ viewGameGeneralLayout model =
         ]
 
 
-displayWinner : Model -> Html msg
+displayWinner : Model -> Html Msg
 displayWinner model =
-    text (Maybe.withDefault "" model.state.winner)
+    title H2 [ coolStyle ] [ text (Maybe.withDefault "" model.state.winner) ]
 
 
 isActivePlayer : Model -> Bool
@@ -333,9 +333,9 @@ nameTagViewingSpace model player player_id shouldHighlight =
     drawingSpaceForVoting (readOnlyRenderAttributes model shouldHighlight) 0.2 (drawLines player.name player.color) model player_id
 
 
-viewSubject : Model -> Html Msg
-viewSubject model =
-    if isTrickster model then
+viewSubject : Bool -> Model -> Html Msg
+viewSubject allView model =
+    if not allView && isTrickster model then
         text ""
     else
         let
