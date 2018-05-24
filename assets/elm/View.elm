@@ -330,7 +330,7 @@ soloDrawingSpace model =
 
 nameTagViewingSpace : Model -> Player -> String -> Bool -> Html Msg
 nameTagViewingSpace model player player_id shouldHighlight =
-    drawingSpaceForVoting (readOnlyRenderAttributes model shouldHighlight) 0.2 (drawLines player.name player.color) model player_id
+    drawingSpaceForVoting shouldHighlight (readOnlyRenderAttributes model shouldHighlight) 0.2 (drawLines player.name player.color) model player_id
 
 
 viewSubject : Bool -> Model -> Html Msg
@@ -378,21 +378,28 @@ drawingSpaceWithRatio attributes ratio lines model =
         ]
 
 
-drawingSpaceForVoting : List (Html.Attribute Msg) -> Float -> List (Svg Msg) -> Model -> String -> Html Msg
-drawingSpaceForVoting attributes ratio lines model player_id =
+drawingSpaceForVoting : Bool -> List (Html.Attribute Msg) -> Float -> List (Svg Msg) -> Model -> String -> Html Msg
+drawingSpaceForVoting allowedToVote attributes ratio lines model player_id =
     let
         pxStr =
             toString (model.drawingSpaceEdgePx * ratio) ++ "px"
+
+        clickHandlerAttrs =
+            if allowedToVote then
+                [ onClick <| VoteFor player_id ]
+            else
+                []
     in
     box
-        [ style
+        ([ style
             [ ( "padding", "0px" )
             , ( "height", pxStr )
             , ( "width", pxStr )
             , ( "background-color", "#f5f5f5" )
             ]
-        , onClick <| VoteFor player_id
-        ]
+         ]
+            ++ clickHandlerAttrs
+        )
         [ svg attributes lines
         ]
 
