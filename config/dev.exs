@@ -20,7 +20,7 @@ config :fake_artist, FakeArtistWeb.Endpoint,
     ]
   ]
 
-config :logger, level: :error
+# config :logger, level: :error
 
 # ## SSL Support
 #

@@ -270,7 +270,6 @@ defmodule FakeArtist.Table do
       end)
 
     state = %FakeArtist.State{state | players: players, updates_pending: true}
-
     {:reply, :ok, state}
   end
 

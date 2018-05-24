@@ -454,7 +454,7 @@ maybeListenForMove model =
             , Pointer.onUp Up
             ]
     in
-    if isDrawing model || isWritingName model then
+    if (isDrawing model && not model.drawDisabled) || isWritingName model then
         case model.mouseDown of
             True ->
                 Pointer.onMove Move :: defaultList

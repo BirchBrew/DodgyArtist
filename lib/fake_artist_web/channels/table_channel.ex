@@ -30,7 +30,7 @@ defmodule FakeArtistWeb.TableChannel do
 
   def handle_in("progress_game", %{}, socket) do
     FakeArtist.Table.progress_game(socket.assigns.table, socket.assigns.id)
-    {:noreply, socket}
+    {:reply, :ok, socket}
   end
 
   def handle_in("choose_subject", %{"subject" => subject}, socket) do
