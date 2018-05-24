@@ -146,62 +146,72 @@ update msg model =
             ( { model | currentLine = [], drawDisabled = False }, Cmd.none )
 
         GuessSubject ->
-            let
-                linesAsEncodedStrings =
-                    List.map
-                        (\line ->
-                            List.map (\point -> Json.Encode.string point) line
-                        )
-                        model.currentSoloDrawing
+            case List.length model.currentSoloDrawing of
+                0 ->
+                    ( model, Cmd.none )
 
-                payload =
-                    Json.Encode.object
-                        [ ( "subject", Json.Encode.list <| List.map Json.Encode.list linesAsEncodedStrings )
-                        ]
+                _ ->
+                    let
+                        linesAsEncodedStrings =
+                            List.map
+                                (\line ->
+                                    List.map (\point -> Json.Encode.string point) line
+                                )
+                                model.currentSoloDrawing
 
-                push =
-                    Phoenix.Push.init "guess_subject" (Maybe.withDefault "" model.tableTopic)
-                        |> Phoenix.Push.withPayload payload
+                        payload =
+                            Json.Encode.object
+                                [ ( "subject", Json.Encode.list <| List.map Json.Encode.list linesAsEncodedStrings )
+                                ]
 
-                ( phxSocket, phxCmd ) =
-                    Phoenix.Socket.push push model.phxSocket
-            in
-            ( { model
-                | phxSocket = phxSocket
-                , currentSoloDrawing = []
-                , currentLine = []
-              }
-            , Cmd.map PhoenixMsg phxCmd
-            )
+                        push =
+                            Phoenix.Push.init "guess_subject" (Maybe.withDefault "" model.tableTopic)
+                                |> Phoenix.Push.withPayload payload
+
+                        ( phxSocket, phxCmd ) =
+                            Phoenix.Socket.push push model.phxSocket
+                    in
+                    ( { model
+                        | phxSocket = phxSocket
+                        , currentSoloDrawing = []
+                        , currentLine = []
+                      }
+                    , Cmd.map PhoenixMsg phxCmd
+                    )
 
         ChooseSubject ->
-            let
-                linesAsEncodedStrings =
-                    List.map
-                        (\line ->
-                            List.map (\point -> Json.Encode.string point) line
-                        )
-                        model.currentSoloDrawing
+            case List.length model.currentSoloDrawing of
+                0 ->
+                    ( model, Cmd.none )
 
-                payload =
-                    Json.Encode.object
-                        [ ( "subject", Json.Encode.list <| List.map Json.Encode.list linesAsEncodedStrings )
-                        ]
+                _ ->
+                    let
+                        linesAsEncodedStrings =
+                            List.map
+                                (\line ->
+                                    List.map (\point -> Json.Encode.string point) line
+                                )
+                                model.currentSoloDrawing
 
-                push =
-                    Phoenix.Push.init "choose_subject" (Maybe.withDefault "" model.tableTopic)
-                        |> Phoenix.Push.withPayload payload
+                        payload =
+                            Json.Encode.object
+                                [ ( "subject", Json.Encode.list <| List.map Json.Encode.list linesAsEncodedStrings )
+                                ]
 
-                ( phxSocket, phxCmd ) =
-                    Phoenix.Socket.push push model.phxSocket
-            in
-            ( { model
-                | phxSocket = phxSocket
-                , currentSoloDrawing = []
-                , currentLine = []
-              }
-            , Cmd.map PhoenixMsg phxCmd
-            )
+                        push =
+                            Phoenix.Push.init "choose_subject" (Maybe.withDefault "" model.tableTopic)
+                                |> Phoenix.Push.withPayload payload
+
+                        ( phxSocket, phxCmd ) =
+                            Phoenix.Socket.push push model.phxSocket
+                    in
+                    ( { model
+                        | phxSocket = phxSocket
+                        , currentSoloDrawing = []
+                        , currentLine = []
+                      }
+                    , Cmd.map PhoenixMsg phxCmd
+                    )
 
         VoteFor playerId ->
             if isValidVote playerId model then
@@ -271,34 +281,39 @@ update msg model =
             ( { model | drawingSpaceEdgePx = calculateDrawingSpaceEdgePx h w }, Cmd.none )
 
         ChooseName ->
-            let
-                linesAsEncodedStrings =
-                    List.map
-                        (\line ->
-                            List.map (\point -> Json.Encode.string point) line
-                        )
-                        model.currentSoloDrawing
+            case List.length model.currentSoloDrawing of
+                0 ->
+                    ( model, Cmd.none )
 
-                payload =
-                    Json.Encode.object
-                        [ ( "name", Json.Encode.list <| List.map Json.Encode.list linesAsEncodedStrings )
-                        ]
+                _ ->
+                    let
+                        linesAsEncodedStrings =
+                            List.map
+                                (\line ->
+                                    List.map (\point -> Json.Encode.string point) line
+                                )
+                                model.currentSoloDrawing
 
-                push =
-                    Phoenix.Push.init "choose_name" (Maybe.withDefault "" model.tableTopic)
-                        |> Phoenix.Push.withPayload payload
+                        payload =
+                            Json.Encode.object
+                                [ ( "name", Json.Encode.list <| List.map Json.Encode.list linesAsEncodedStrings )
+                                ]
 
-                ( phxSocket, phxCmd ) =
-                    Phoenix.Socket.push push model.phxSocket
-            in
-            ( { model
-                | phxSocket = phxSocket
-                , currentSoloDrawing = []
-                , currentLine = []
-                , hasEnteredName = True
-              }
-            , Cmd.map PhoenixMsg phxCmd
-            )
+                        push =
+                            Phoenix.Push.init "choose_name" (Maybe.withDefault "" model.tableTopic)
+                                |> Phoenix.Push.withPayload payload
+
+                        ( phxSocket, phxCmd ) =
+                            Phoenix.Socket.push push model.phxSocket
+                    in
+                    ( { model
+                        | phxSocket = phxSocket
+                        , currentSoloDrawing = []
+                        , currentLine = []
+                        , hasEnteredName = True
+                      }
+                    , Cmd.map PhoenixMsg phxCmd
+                    )
 
 
 transformInput : String -> String
