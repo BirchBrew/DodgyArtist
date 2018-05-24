@@ -171,7 +171,7 @@ littleStateView model =
             let
                 extraParts =
                     if isGameMaster model then
-                        [ text "Was the trickster's guess correct?"
+                        [ title H3 [ coolStyle ] [ text "Was the trickster's guess correct?" ]
                         , button myButtonModifiers [ onClick <| Validate True ] [ text "Yes" ]
                         , button myButtonModifiers [ onClick <| Validate False ] [ text "No" ]
                         ]
@@ -271,9 +271,9 @@ viewGameGeneralLayout model =
         ]
 
 
-displayWinner : Model -> Html msg
+displayWinner : Model -> Html Msg
 displayWinner model =
-    text (Maybe.withDefault "" model.state.winner)
+    title H3 [ coolStyle ] [ text (Maybe.withDefault "" model.state.winner) ]
 
 
 isActivePlayer : Model -> Bool
